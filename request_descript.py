@@ -126,10 +126,10 @@ while(video.isOpened()):
         print(f"{end - start:.5f} sec\n")
         
 
-write_wb.save(filename="D:\excel\description.xlsx")
+write_wb.save(filename="D:/excel/description.xlsx")
 video.release()
 
-read_wb = load_workbook(filename="D:\excel\description.xlsx")
+read_wb = load_workbook(filename="D:/excel/description.xlsx")
 read_ws = read_wb["Sheet"]
 
 for des_count in range(count, 1, -1):
@@ -173,7 +173,7 @@ for row in write_ws.iter_rows():
         result_ws.row_dimensions[cell_num].height = height
     count_img += 1
     
-write_wb.save(filename="D:\excel\description.xlsx")
+write_wb.save(filename="D:/excel/description.xlsx")
 code_end = time.time()
 
 print(f"{(code_end - code_start) // 60}분 {(code_end - code_start) % 60}초")
