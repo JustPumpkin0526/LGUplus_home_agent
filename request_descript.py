@@ -40,7 +40,7 @@ write_wb = Workbook()
 write_ws = write_wb.active
 
 #영상 불러오기
-filepath = 'video/baby_test_video(lgU+).mp4'
+filepath = 'video/baby_test_video(LGU+2).mp4'
 video = cv2.VideoCapture(filepath)
 
 if not video.isOpened():
@@ -58,7 +58,7 @@ except OSError:
 
 count = 1
 fps = video.get(cv2.CAP_PROP_FPS)
-get_frame = math.trunc(fps * 10)
+get_frame = math.trunc(fps * 20)
 
 write_ws.append(["추출 이미지","타임스탬프","Descript","유사도 스코어","장면 전환 여부"])
 #프레임별 이미지 추출 및 타임스탬프, descript 받아오기
@@ -91,7 +91,7 @@ while(video.isOpened()):
 
         image_path = folder_name + "/%s" %file_name
         request_img = Image.open(image_path)
-        # 이전 프롬포트:아기가 잠을 자는 중인가요? 잠을 자는 중이 아니라면 무슨 행동을 하고있나요?, 아기 상황을 설명해주세요
+        # 이전 프롬포트:아기가 잠을 자는 중인가요? 잠을 자는 중이 아니라면 무슨 행동을 하고있나요?, 아기 상황을 설명해주세요, 아기가 자는 중인가요? ‘네’ 혹은 ‘아니요’로 대답을 통일하세요, 아기의 상태와 행동을 설명헤주세요
         start_time = time.time()
         result = infer_from_server_with_image_object("http://172.16.8.52:8000", request_img, "아기가 무슨 상태인가요?","Llama3.2-VIX-M-3B-KO")
         end_time = time.time()
@@ -153,8 +153,8 @@ result_ws = write_wb.create_sheet('result')
 result_ws.append(["추출 이미지","타임스탬프","Descript","유사도 스코어","장면 전환 여부"])
 
 cell_num = 1
-count_img = 0
-file_list = os.listdir()
+count_img = -1
+file_list = os.listdir(folder_name + "/")
 for row in write_ws.iter_rows():
     if row[4].value == 'O':
         cell_num +=1
@@ -171,6 +171,7 @@ for row in write_ws.iter_rows():
         width, height = get_img_size(img.width, img.height)
         result_ws.column_dimensions['A'].width = width
         result_ws.row_dimensions[cell_num].height = height
+        
     count_img += 1
     
 write_wb.save(filename="D:/excel/description.xlsx")
