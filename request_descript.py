@@ -16,6 +16,7 @@ from textsimilarity import get_similarity
 import time
 import cv2
 import os
+import math
 
 code_start = time.time()
 
@@ -39,7 +40,7 @@ write_wb = Workbook()
 write_ws = write_wb.active
 
 #영상 불러오기
-filepath = 'video/baby_test_video(LGU+2).mp4'
+filepath = 'video/baby_test_video(lgU+).mp4'
 video = cv2.VideoCapture(filepath)
 
 if not video.isOpened():
@@ -57,7 +58,7 @@ except OSError:
 
 count = 1
 fps = video.get(cv2.CAP_PROP_FPS)
-get_frame = 600
+get_frame = math.trunc(fps * 10)
 
 write_ws.append(["추출 이미지","타임스탬프","Descript","유사도 스코어","장면 전환 여부"])
 #프레임별 이미지 추출 및 타임스탬프, descript 받아오기
@@ -99,21 +100,19 @@ while(video.isOpened()):
         img.width = 300
         img.height = 200
 
-        
-
         image_cell = 'A'+ str(count)
         descript = result.get('result')
-        if descript == '네':
-            descript = '아기가 자는 중입니다.'
-            #if act_count > 0:
-            #    act_count -= 1
-        elif descript == '아니요':
-            descript = '아기가 깨어있습니다.'
-            #if act_count == 1:   
-            #    act = infer_from_server_with_image_object("http://172.16.8.52:8000", request_img, "잠에서 깬 아기가 무슨 행동을 했나요?","Llama3.2-VIX-M-3B-KO")
-            #    descript = act.get('result')
-            #else:
-            #    act_count += 1
+        #if descript == '네':
+        #    descript = '아기가 자는 중입니다.'
+        #    if act_count > 0:
+        #        act_count -= 1
+        #elif descript == '아니요':
+        #    descript = '아기가 깨어있습니다.'
+        #    if act_count == 1:   
+        #        act = infer_from_server_with_image_object("http://172.16.8.52:8000", request_img, "잠에서 깬 아기가 무슨 행동을 했나요?","Llama3.2-VIX-M-3B-KO")
+        #        descript = act.get('result')
+        #    else:
+        #        act_count += 1
     
         write_ws.add_image(img, image_cell)
         write_ws.append({'B':Time, 'C':descript})
