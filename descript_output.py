@@ -8,11 +8,14 @@ import random
 
 app = FastAPI()
 
+video_path = "video/baby_test_video(LGU+2)"
+video_name = "video/baby_test_video(LGU+2).mp4"
+
 video_dir = os.path.join(os.path.dirname(__file__), "video")
-image_dir = os.path.join(os.path.dirname(__file__), "video/baby_test_video(LGU+2)")
+image_dir = os.path.join(os.path.dirname(__file__), video_path)
 
 app.mount("/video", StaticFiles(directory=video_dir), name="video")
-app.mount("/video/baby_test_video(LGU+2)", StaticFiles(directory=image_dir), name="baby_test_video(LGU+2)")
+app.mount(f"/{video_path}", StaticFiles(directory=image_dir), name="baby_test_video")
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -158,7 +161,7 @@ async def root():
                 <button onclick="stopVideo()">ㅤ❚❚ 영상 일시정지ㅤ</button>
             </div>
             <video id="videoPlayer" width="640" controls>
-                <source src="/video/baby_test_video(LGU+2).mp4" type="video/mp4">
+                <source src="videoname" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
             <div id="progressContainer">
@@ -575,7 +578,7 @@ async def root():
         </script>
     </body>
     </html>
-    """
+    """.replace("videoname",video_name)
 
 @app.get("/frames_with_o")
 async def get_frames_with_o():
@@ -597,7 +600,7 @@ async def get_frames_with_o():
                 total_seconds = h * 3600 + m * 60 + s
                 frames_o.append(total_seconds)
                 image_filename = f"frame{image_count}.jpg"
-                image_urls.append(f"/video/baby_test_video(LGU+2)/{image_filename}?v={random.randint(1, 1_000_000)}")
+                image_urls.append(f"/{video_path}/{image_filename}?v={random.randint(1, 1_000_000)}")
                 frame_count += 1
     return JSONResponse(content={"frames": frames_o, "frame_count": frame_count, "image_urls": image_urls})
 
@@ -636,7 +639,7 @@ async def get_excel_data():
         image_count += 1
         if mark == "O":
             image_filename = f"frame{image_count}.jpg"
-            image_urls.append(f"/video/baby_test_video(LGU+2)/{image_filename}")
+            image_urls.append(f"/{video_path}/{image_filename}")
     
     result_sheet.insert(0, "이미지", image_urls)
 
@@ -644,9 +647,3 @@ async def get_excel_data():
         "columns": list(result_sheet.columns),
         "data": result_sheet.values.tolist()
     })
-
-@app.get("/act_data")
-async def get_act_data():
-    excel_path = "D:/excel/description.xlsx"
-    df = pd.read_excel(excel_path, sheet_name="act", usecols= [1,2,4])
-    return df.to_dict(orient="records")

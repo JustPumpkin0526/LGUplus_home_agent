@@ -40,7 +40,7 @@ write_wb = Workbook()
 write_ws = write_wb.active
 
 #영상 불러오기
-filepath = 'video/baby_test_video(LGU+2).mp4'
+filepath = 'video/baby_test_video(LGU+3).mp4'
 video = cv2.VideoCapture(filepath)
 
 if not video.isOpened():
@@ -91,9 +91,9 @@ while(video.isOpened()):
 
         image_path = folder_name + "/%s" %file_name
         request_img = Image.open(image_path)
-        # 이전 프롬포트:아기가 잠을 자는 중인가요? 잠을 자는 중이 아니라면 무슨 행동을 하고있나요?, 아기 상황을 설명해주세요, 아기가 자는 중인가요? ‘네’ 혹은 ‘아니요’로 대답을 통일하세요, 아기의 상태와 행동을 설명헤주세요
+        # 이전 프롬포트:아기가 잠을 자는 중인가요? 잠을 자는 중이 아니라면 무슨 행동을 하고있나요?, 아기 상황을 설명해주세요, 아기가 자는 중인가요? ‘네’ 혹은 ‘아니요’로 대답을 통일하세요, 아기의 상태와 행동을 설명헤주세요, 아기는 무슨 상태인가요?
         start_time = time.time()
-        result = infer_from_server_with_image_object("http://172.16.8.52:8000", request_img, "아기가 무슨 상태인가요?","Llama3.2-VIX-M-3B-KO")
+        result = infer_from_server_with_image_object("http://172.16.8.52:8000", request_img, "아기는 무슨 상태인가요?","Llama3.2-VIX-M-3B-KO")
         end_time = time.time()
         
         img = XLImage(image_path)
@@ -134,7 +134,7 @@ read_ws = read_wb["Sheet"]
 
 for des_count in range(count, 1, -1):
     device = "cuda:0"
-    model_sentence = SentenceTransformer('D:/model_clone/ko-sroberta-multitask',device=device)
+    model_sentence = SentenceTransformer('/model_clone/ko-sroberta-multitask',device=device)
     if (des_count == 1):
         descript_value = str(read_ws['C'+str(des_count)].value)
         descript_check = str(read_ws['C'+str(des_count+1)].value)
