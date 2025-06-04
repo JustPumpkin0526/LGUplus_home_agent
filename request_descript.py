@@ -40,7 +40,7 @@ write_wb = Workbook()
 write_ws = write_wb.active
 
 #영상 불러오기
-filepath = 'video/baby_test_video(LGU+3).mp4'
+filepath = 'video/baby_test_video(LGU+1).mp4'
 video = cv2.VideoCapture(filepath)
 
 if not video.isOpened():
@@ -54,13 +54,13 @@ try:
     else:
         DeleteAllFiles(filepath[:-4])
 except OSError:
-    print('Error: Creating directory. ' + filepath[:-4])
+    print('Error: Already created directory. ' + filepath[:-4])
 
 count = 1
 fps = video.get(cv2.CAP_PROP_FPS)
 get_frame = math.trunc(fps * 20)
 
-write_ws.append(["추출 이미지","타임스탬프","Descript","유사도 스코어","장면 전환 여부"])
+write_ws.append(["추출 이미지","타임스탬프","Descript","유사도 스코어","장면 전환 여부", "아기 수면 여부", "수면 스코어" ])
 #프레임별 이미지 추출 및 타임스탬프, descript 받아오기
 folder_name = filepath[:-4]
 while(video.isOpened()):
@@ -91,7 +91,8 @@ while(video.isOpened()):
 
         image_path = folder_name + "/%s" %file_name
         request_img = Image.open(image_path)
-        # 이전 프롬포트:아기가 잠을 자는 중인가요? 잠을 자는 중이 아니라면 무슨 행동을 하고있나요?, 아기 상황을 설명해주세요, 아기가 자는 중인가요? ‘네’ 혹은 ‘아니요’로 대답을 통일하세요, 아기의 상태와 행동을 설명헤주세요, 아기는 무슨 상태인가요?
+        # 이전 프롬포트:아기가 잠을 자는 중인가요? 잠을 자는 중이 아니라면 무슨 행동을 하고있나요?, 아기 상황을 설명해주세요, 아기가 자는 중인가요? ‘네’ 혹은 ‘아니요’로 대답을 통일하세요, 아기의 상태와 행동을 설명헤주세요, 아기는 무슨 상태인가요?,
+        # 아기가 잠을 자고 있나요? 자고 있지 않다면 무슨 행동을 하는 중인가요?
         start_time = time.time()
         result = infer_from_server_with_image_object("http://172.16.8.52:8000", request_img, "아기는 무슨 상태인가요?","Llama3.2-VIX-M-3B-KO")
         end_time = time.time()
@@ -135,22 +136,28 @@ read_ws = read_wb["Sheet"]
 for des_count in range(count, 1, -1):
     device = "cuda:0"
     model_sentence = SentenceTransformer('/model_clone/ko-sroberta-multitask',device=device)
-    if (des_count == 1):
+    if (des_count == 2):
         descript_value = str(read_ws['C'+str(des_count)].value)
         descript_check = str(read_ws['C'+str(des_count+1)].value)
     else:
         descript_value = str(read_ws['C'+str(des_count)].value)
         descript_check = str(read_ws['C'+str(des_count-1)].value)
     score = get_similarity(model_sentence, descript_value, descript_check)
+    sleep_score = get_similarity(model_sentence, descript_value, "아기가 자는 중입니다.")
     write_ws['D'+str(des_count)] = score
+    write_ws['G'+str(des_count)] = sleep_score
 
     if score > 0.7:
         write_ws['E'+str(des_count)] = "X"
     else:
         write_ws['E'+str(des_count)] = "O"
+    if sleep_score > 0.75:
+        write_ws['F'+str(des_count)] = "아기가 자는 중입니다."
+    else:
+        write_ws['F'+str(des_count)] = "아기가 깨어 있습니다."
 
 result_ws = write_wb.create_sheet('result')
-result_ws.append(["추출 이미지","타임스탬프","Descript","유사도 스코어","장면 전환 여부"])
+result_ws.append(["추출 이미지","타임스탬프","Descript","유사도 스코어","장면 전환 여부", "아기 수면 여부", "수면 스코어"])
 
 cell_num = 1
 count_img = -1

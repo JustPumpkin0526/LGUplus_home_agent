@@ -592,14 +592,18 @@ async def get_frames_with_o():
     image_count = 0
     for row in ws.iter_rows(min_row=2):
         mark = row[4].value
-        image_count += 1
+        image_count += 20
         if mark == "O":
             time_str = row[1].value
             if time_str:
+                second = image_count%60
+                minute = (image_count//60)%60 
+                hour = image_count//60//60
+                file_time = f"{hour:02d}_{minute:02d}_{second:02d}"
                 h, m, s = map(int, time_str.split(":"))
                 total_seconds = h * 3600 + m * 60 + s
                 frames_o.append(total_seconds)
-                image_filename = f"frame{image_count}.jpg"
+                image_filename = f"baby_test_{file_time}.jpg"
                 image_urls.append(f"/{video_path}/{image_filename}?v={random.randint(1, 1_000_000)}")
                 frame_count += 1
     return JSONResponse(content={"frames": frames_o, "frame_count": frame_count, "image_urls": image_urls})
@@ -636,9 +640,13 @@ async def get_excel_data():
     image_count = 0
     for row in result_ws.iter_rows(min_row=2):
         mark = row[4].value
-        image_count += 1
+        image_count += 20
         if mark == "O":
-            image_filename = f"frame{image_count}.jpg"
+            second = image_count%60
+            minute = (image_count//60)%60 
+            hour = image_count//60//60
+            file_time = f"{hour:02d}_{minute:02d}_{second:02d}"
+            image_filename = f"baby_test_{file_time}.jpg"
             image_urls.append(f"/{video_path}/{image_filename}")
     
     result_sheet.insert(0, "이미지", image_urls)
