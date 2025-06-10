@@ -8,8 +8,8 @@ import random
 
 app = FastAPI()
 
-video_path = "video/baby_test_video(LGU+2)"
-video_name = "video/baby_test_video(LGU+2).mp4"
+video_path = 'video/류_상250427_14'
+video_name = 'video/류_상250427_14.mp4'
 
 video_dir = os.path.join(os.path.dirname(__file__), "video")
 image_dir = os.path.join(os.path.dirname(__file__), video_path)
@@ -530,60 +530,17 @@ async def root():
 
             loadExcelData();
 
-            async function loadActData() {
-                const response = await fetch('/act_data');
-                const data = await response.json();
-
-                const tableContainer = document.getElementById('act-table-container');
-                const table = document.createElement('table');
-                table.border = "1";
-                table.style.borderCollapse = "collapse";
-                table.style.marginTop = "10px";
-
-                if (data.length === 0) {
-                    table.innerHTML = "<tr><td>데이터 없음</td></tr>";
-                } else {
-                    // 헤더 생성
-                    const headers = Object.keys(data[0]);
-                    const headerRow = document.createElement('tr');
-                    headers.forEach(header => {
-                        const th = document.createElement('th');
-                        th.textContent = header;
-                        th.style.padding = "6px";
-                        th.style.backgroundColor = "#f0f0f0";
-                        headerRow.appendChild(th);
-                    });
-                    table.appendChild(headerRow);
-
-                    // 데이터 행 생성
-                    data.forEach(row => {
-                        const tr = document.createElement('tr');
-                        headers.forEach(header => {
-                            const td = document.createElement('td');
-                            td.textContent = row[header];
-                            td.style.padding = "6px";
-                            tr.appendChild(td);
-                        });
-                        table.appendChild(tr);
-                    });
-                }
-
-                tableContainer.appendChild(table);
-            }
-
-            window.onload = function() {
-                loadActData();
-            };
-
         </script>
     </body>
     </html>
     """.replace("videoname",video_name)
 
+request_sec = 5
+
 @app.get("/frames_with_o")
 async def get_frames_with_o():
     
-    excel_path = "D:/excel/description.xlsx"
+    excel_path = "./excel/description.xlsx"
     wb = load_workbook(excel_path)
     ws = wb.active
     frames_o = []
@@ -592,7 +549,7 @@ async def get_frames_with_o():
     image_count = 0
     for row in ws.iter_rows(min_row=2):
         mark = row[4].value
-        image_count += 20
+        image_count += request_sec
         if mark == "O":
             time_str = row[1].value
             if time_str:
@@ -610,7 +567,7 @@ async def get_frames_with_o():
 
 @app.get("/subtitles")
 async def get_subtitles():
-    excel_path = "D:/excel/description.xlsx"
+    excel_path = "./excel/description.xlsx"
     wb = load_workbook(excel_path)
     ws = wb.active
 
@@ -628,7 +585,7 @@ async def get_subtitles():
 
 @app.get("/excel_data")
 async def get_excel_data():
-    excel_path = "D:/excel/description.xlsx"
+    excel_path = "./excel/description.xlsx"
     result_sheet = pd.read_excel(excel_path, sheet_name='result', usecols= [1,2,4])
 
     result_sheet = result_sheet.replace([float('inf'), float('-inf')], pd.NA)
@@ -640,7 +597,7 @@ async def get_excel_data():
     image_count = 0
     for row in result_ws.iter_rows(min_row=2):
         mark = row[4].value
-        image_count += 20
+        image_count += request_sec
         if mark == "O":
             second = image_count%60
             minute = (image_count//60)%60 
