@@ -13,7 +13,6 @@ from fastapi.staticfiles import StaticFiles
 from inference_client import infer_from_server_with_image_object
 from textsimilarity import get_similarity
 
-import json
 import time
 import cv2
 import os
@@ -106,9 +105,9 @@ while(video.isOpened()):
         request_img = Image.open(image_path)
         # 이전 프롬포트:아기가 잠을 자는 중인가요? 잠을 자는 중이 아니라면 무슨 행동을 하고있나요?, 아기 상황을 설명해주세요, 아기가 자는 중인가요? ‘네’ 혹은 ‘아니요’로 대답을 통일하세요, 아기의 상태와 행동을 설명헤주세요, 아기는 무슨 상태인가요?,
         # 아기가 잠을 자고 있나요? 자고 있지 않다면 무슨 행동을 하는 중인가요?, 아기가 잠을 자고 있나요? 아기가 깨어 있다면 무슨 행동을 하는 중인가요?, 아기의 수면 여부를 설명하시오., 아기의 수면 여부는 어떤가요?, 아기가 잠을 자고 있나요?
-        # 아기가 깨어있나요? 아니면 자는 중인가요?
+        # 아기가 깨어있나요? 아니면 자는 중인가요?, 아기가 자는 중인가요? 깨어 있나요?, 아기의 수면 상태는 어떤가요?,아기가 자는 중인가요? 아니면 깨어 있나요?, 아기의 상태는 무슨 상태인가요?
         start_time = time.time()
-        result = infer_from_server_with_image_object("http://172.16.8.52:8000", request_img, "아기의 수면 상태는 어떤가요?","Llama3.2-VIX-M-3B-KO")
+        result = infer_from_server_with_image_object("http://172.16.8.52:8000", request_img, "아기가 자는 중인가요? 아니면 깨어 있나요?","Llama3.2-VIX-M-3B-KO")
         end_time = time.time()
         
         img = XLImage(image_path)

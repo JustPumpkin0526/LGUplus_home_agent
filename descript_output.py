@@ -3,7 +3,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from openpyxl import load_workbook
 import pandas as pd
+import cv2
 import os
+import math
 import random
 
 app = FastAPI()
@@ -16,6 +18,12 @@ image_dir = os.path.join(os.path.dirname(__file__), video_path)
 
 app.mount("/video", StaticFiles(directory=video_dir), name="video")
 app.mount(f"/{video_path}", StaticFiles(directory=image_dir), name="baby_test_video")
+
+video = cv2.VideoCapture(video_name)
+
+fps = math.trunc(video.get(cv2.CAP_PROP_FPS))
+request_sec = 2
+get_frame = math.trunc(fps * request_sec)
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -227,15 +235,11 @@ async def root():
                 video.pause();
                 video.currentTime = globalCurrentTime;
             
-                const fps = 30;
-                const frameStep = 180;
-                const interval = frameStep / fps;
-            
                 while (video.currentTime < video.duration) {
                     if (cancel) return;
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                     if (cancel) return;
-                    video.currentTime += interval;
+                    video.currentTime += request_sec;
                     globalCurrentTime = video.currentTime;
                     const subtitleText = getSubtitleAtTime(video.currentTime);
                     subtitle.textContent = subtitleText || '';
@@ -297,9 +301,7 @@ async def root():
                             let cancel = false;
                             currentTask = { cancel: () => cancel = true };
                     
-                            const fps = 30;
-                            const frameStep = 180;
-                            const interval = frameStep / fps;
+                            const interval = 2;
                     
                             while (video.currentTime < video.duration) {
                                 if (cancel) return;
@@ -533,9 +535,9 @@ async def root():
         </script>
     </body>
     </html>
-    """.replace("videoname",video_name)
+    """.replace("videoname",video_name).replace("request_sec", str(request_sec))
 
-request_sec = 5
+request_sec = 2
 
 @app.get("/frames_with_o")
 async def get_frames_with_o():
@@ -546,18 +548,13 @@ async def get_frames_with_o():
     frames_o = []
     image_urls = []
     frame_count = 0
-    image_count = 0
     for row in ws.iter_rows(min_row=2):
         mark = row[4].value
-        image_count += request_sec
         if mark == "O":
             time_str = row[1].value
             if time_str:
-                second = image_count%60
-                minute = (image_count//60)%60 
-                hour = image_count//60//60
-                file_time = f"{hour:02d}_{minute:02d}_{second:02d}"
                 h, m, s = map(int, time_str.split(":"))
+                file_time = f"{h:02d}_{m:02d}_{s:02d}"
                 total_seconds = h * 3600 + m * 60 + s
                 frames_o.append(total_seconds)
                 image_filename = f"baby_test_{file_time}.jpg"
@@ -578,7 +575,7 @@ async def get_subtitles():
         if time_str and text:
             h, m, s = map(int, time_str.split(":"))
             start_time = h * 3600 + m * 60 + s
-            end_time = start_time + 2
+            end_time = start_time + 1
             subtitles.append({"start": start_time, "end": end_time, "text": text})
 
     return JSONResponse(content={"subtitles": subtitles})
@@ -586,7 +583,7 @@ async def get_subtitles():
 @app.get("/excel_data")
 async def get_excel_data():
     excel_path = "./excel/description.xlsx"
-    result_sheet = pd.read_excel(excel_path, sheet_name='result', usecols= [1,2,4])
+    result_sheet = pd.read_excel(excel_path, sheet_name='result', usecols= [1,2,5])
 
     result_sheet = result_sheet.replace([float('inf'), float('-inf')], pd.NA)
     result_sheet = result_sheet.fillna('')
@@ -594,15 +591,12 @@ async def get_excel_data():
     result_wb = load_workbook(excel_path)
     result_ws = result_wb.active
     image_urls = []
-    image_count = 0
     for row in result_ws.iter_rows(min_row=2):
         mark = row[4].value
-        image_count += request_sec
+        time_str = row[1].value
         if mark == "O":
-            second = image_count%60
-            minute = (image_count//60)%60 
-            hour = image_count//60//60
-            file_time = f"{hour:02d}_{minute:02d}_{second:02d}"
+            h, m, s = map(int, time_str.split(":"))
+            file_time = f"{h:02d}_{m:02d}_{s:02d}"
             image_filename = f"baby_test_{file_time}.jpg"
             image_urls.append(f"/{video_path}/{image_filename}")
     
