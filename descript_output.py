@@ -10,8 +10,8 @@ import random
 
 app = FastAPI()
 
-video_path = 'video/류_상250427_14'
-video_name = 'video/류_상250427_14.mp4'
+video_path = 'video/조_우0427_14'
+video_name = 'video/조_우0427_14.mp4'
 
 video_dir = os.path.join(os.path.dirname(__file__), "video")
 image_dir = os.path.join(os.path.dirname(__file__), video_path)
@@ -338,9 +338,9 @@ async def root():
                 
                     // 시간 텍스트 생성
                     const timeLabel = document.createElement('span');
-                    var time_text = formatTime(clickedTime);
-                    var time_descript = subtitleText;
-                    var res = time_text.concat(time_descript);
+                    let time_text = formatTime(clickedTime);
+                    let time_descript = subtitleText;
+                    let res = time_text + "\\n" + String(time_descript);
                     timeLabel.textContent = res;
                     timeLabel.style.fontSize = '0.8em';
                     timeLabel.style.color = '#555';
