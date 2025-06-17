@@ -230,10 +230,6 @@ for des_count in range(count, 1, -1):
         write_ws['F'+str(des_count)] = "X"
     else:
         write_ws['F'+str(des_count)] = "O"
-    #if sleep_score > 0.75:
-    #    write_ws['F'+str(des_count)] = "아기가 자는 중입니다."
-    #else:
-    #    write_ws['F'+str(des_count)] = "아기가 깨어 있습니다."
 
 result_ws = write_wb.create_sheet('result')
 result_ws.append(["IMAGE","TIMESTAMP","DESCRIPT","SIMILARITY_SCORE","SLEEP_SCORE","SLEEP_CHANGE", "SLEEP_DESCRIPT", "SLEEP_PREDICTION", "SLEEP_GT", "SLEEP_GT_RESULT" , "TOTAL_SCORE"])
