@@ -3,7 +3,7 @@ import json
 
 root_path = "."
 file_name = "LG U+ 홈Agent PoC_GT"
-sheet_name = "조_우0427_14"
+sheet_name = "류_상250426_11"
 wb = load_workbook(f"{root_path}/gt_xlsx/{file_name}.xlsx")
 ws = wb[sheet_name]
 
