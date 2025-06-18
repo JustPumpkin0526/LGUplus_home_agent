@@ -127,7 +127,7 @@ while(video.isOpened()):
 
         image_path = folder_name + "/%s" %file_name
         request_img = Image.open(image_path)
-        # 그라디오 사이트 URL : https://62283cc7c6508eb26d.gradio.live/
+        # 그라디오 사이트 URL : https://f8e5cc565a39283372.gradio.live/
 
         # 고려 중인 프롬프트 : 아기가 잠을 자는 중인가요? 잠을 자는 중이 아니라면 무슨 행동을 하고있나요?, 아기 상황을 설명해주세요, 아기가 자는 중인가요? ‘네’ 혹은 ‘아니요’로 대답을 통일하세요, 아기의 상태와 행동을 설명헤주세요, 
         # 아기가 잠을 자고 있나요? 자고 있지 않다면 무슨 행동을 하는 중인가요?, 아기가 잠을 자고 있나요? 아기가 깨어 있다면 무슨 행동을 하는 중인가요?, 아기의 수면 여부를 설명하시오., 아기는 지금 자고 있습니까?
@@ -179,31 +179,61 @@ while(video.isOpened()):
         for GT_DICT in GT_json:
             if GT_DICT["TIMESTAMP"] == Time:
                 write_ws['I'+str(count)] = GT_DICT["IS_SLEEP"]
+                
                 if GT_DICT["IS_SLEEP"] == "O":
                     GT_SLEEP_O += 1
                     if sleep_descript == "아기가 자는 중입니다.":
-                        write_ws['J'+str(count)] = "O"
                         GT_Sleep_O_count += 1
                     else :
-                        write_ws['J'+str(count)] = "X"
                         GT_Sleep_X_count += 1
                 else :
                     GT_SLEEP_X += 1
                     if sleep_descript == "아기가 깨어 있습니다.":
-                        write_ws['J'+str(count)] = "O"
                         GT_Awake_O_count += 1
                     else :
-                        write_ws['J'+str(count)] = "X"
                         GT_Awake_X_count += 1
-                if frame_second == 0:
+
+                if frame_second < 5:
+                    for i in range(frame_second, frame_second + 5):
+                        if GT_json[i]["IS_SLEEP"] == "O":
+                            if sleep_descript == "아기가 자는 중입니다.":
+                                write_ws['J'+str(count)] = "O"
+                                break
+                            else :
+                                write_ws['J'+str(count)] = "X"
+                            
+                        else:
+                            if sleep_descript == "아기가 깨어 있습니다.":
+                                write_ws['J'+str(count)] = "O"
+                                break
+                            else :
+                                write_ws['J'+str(count)] = "X"
+
                     for i in range(frame_second, frame_second + (request_sec // 2 + 1)):
-                        if len(GT_json) <= i:
-                            break
+                        
                         if GT_json[i]["CHANGE"] == 'O':
                             if (GT_json[i]["IS_SLEEP"] == "O" and sleep_descript == "아기가 자는 중입니다.") or (GT_json[i]["IS_SLEEP"] == "X" and sleep_descript == "아기가 깨어 있습니다."):
                                 write_ws['L'+str(count)] = GT_json[i]["CHANGE"]
                     break
+
                 else:
+                    for i in range(frame_second - 5, frame_second + 5):
+                        if len(GT_json) <= i:
+                            break
+                        if GT_json[i]["IS_SLEEP"] == "O":
+                            if sleep_descript == "아기가 자는 중입니다.":
+                                write_ws['J'+str(count)] = "O"
+                                break
+                            else :
+                                write_ws['J'+str(count)] = "X"
+                            
+                        else:
+                            if sleep_descript == "아기가 깨어 있습니다.":
+                                write_ws['J'+str(count)] = "O"
+                                break
+                            else :
+                                write_ws['J'+str(count)] = "X"
+
                     for i in range(frame_second - (request_sec // 2 + 1), frame_second + (request_sec // 2 + 1)):
                         if len(GT_json) <= i:
                             break
@@ -259,17 +289,12 @@ result_ws.append(["IMAGE","TIMESTAMP","DESCRIPT","SIMILARITY_SCORE","SLEEP_SCORE
 #"아기 수면 여부", "수면 스코어"
 cell_num = 1
 count_img = -1
-result_count = 0
-result_GT_count = 0
 change_count = 0
 file_list = os.listdir(folder_name + "/")
 for row in write_ws.iter_rows():
     if row[5].value == 'O':
-        result_count += 1
         if row[11].value == 'O':
             change_count += 1
-        if row[9].value == 'O' :
-            result_GT_count += 1
             
         cell_num +=1
         file_name = file_list[count_img]
@@ -287,8 +312,6 @@ for row in write_ws.iter_rows():
         result_ws.row_dimensions[cell_num].height = height
         
     count_img += 1
-
-result_ws['K2'] = f"GT 정확도 : {(result_GT_count / result_count) * 100}"
 result_ws['K3'] = f"예측한 장면 전환 수 : {prediction_change_count}, GT 장면 전환 수 : {GT_change_count}, 올바른 장면 전환 예측의 개수 : {change_count} \n예측에 따른 장면 전환 정확도 {(change_count / prediction_change_count) * 100:.3f}"
 write_wb.save(filename=excel_folder_path)
 code_end = time.time()
