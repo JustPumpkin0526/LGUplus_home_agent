@@ -180,6 +180,8 @@ let descript_dict = {
   1720 : "아기가 자는 중입니다."
 }
 
+let = sample_list
+
 async function playvideo() {
   const video_option = document.querySelector("select[name=video_option] option:checked").value
   check_text = "";
@@ -356,11 +358,22 @@ uploadButton.addEventListener("click", () => {
       .then(data => {
         console.log("서버 응답:", data);
         if (data) {
-          descript_dict = data.descript_dict;
-          subtitleDiv.textContent = "영상 분석이 완료되었습니다.";
-
+          sample_list = data.sample_list;
+          subtitleDiv.textContent = "영상 분석 중...";
+          formData = new FormData();
+          formData.append("sample_list", sample_list);
+          fetch("/vlm_query", {
+            method: "POST",
+            body: formData
+          })
+            .then(response => response.json())
+            .then(data =>{
+              if (data){
+                descript_dict = data.descript_dict
+              }
+            })
         } else {
-          subtitleDiv.textContent = "분석 결과를 불러올 수 없습니다.";
+          subtitleDiv.textContent = "샘플 데이터 제작에 실패했습니다.";
         }
       })
       .catch(error => {
