@@ -35,6 +35,154 @@ def DeleteAllFiles(folderpath):
         return 'Remove All File'
     else:
         return 'Directory Not Found'
+    
+#GT 판별 코드
+
+def GT_Check(sleep_descript, write_ws, GT, Time, frame_second, GT_Sleep_O_count, GT_Sleep_X_count, GT_Awake_O_count, GT_Awake_X_count, GT_SLEEP_O, GT_SLEEP_X):
+    
+    GT_json = GT
+    for GT_DICT in GT_json:
+        if GT_DICT["TIMESTAMP"] == Time:
+            write_ws['I'+str(count)] = GT_DICT["IS_SLEEP"]
+            
+            if GT_DICT["IS_SLEEP"] == "O":
+                GT_SLEEP_O += 1
+            else :
+                GT_SLEEP_X += 1
+                
+            if frame_second < 5:
+                for i in range(frame_second, frame_second + 6):
+                    if GT_json[i]["IS_SLEEP"] == "O":
+                        if sleep_descript == "아기가 자는 중입니다.":
+                            write_ws['J'+str(count)] = "O"
+                            GT_Sleep_O_count += 1
+                            break
+                        else :
+                            write_ws['J'+str(count)] = "X"
+                            if (i == frame_second + 5):
+                                GT_Sleep_X_count += 1
+                        
+                    else:
+                        if sleep_descript == "아기가 깨어 있습니다.":
+                            write_ws['J'+str(count)] = "O"
+                            GT_Awake_O_count += 1
+                            break
+                        else :
+                            write_ws['J'+str(count)] = "X"
+                            if (i == frame_second + 5):
+                                GT_Awake_X_count += 1
+                for i in range(frame_second, frame_second + (request_sec // 2 + 1)):
+                    
+                    if GT_json[i]["CHANGE"] == 'O':
+                        if (GT_json[i]["IS_SLEEP"] == "O" and sleep_descript == "아기가 자는 중입니다.") or (GT_json[i]["IS_SLEEP"] == "X" and sleep_descript == "아기가 깨어 있습니다."):
+                            write_ws['L'+str(count)] = GT_json[i]["CHANGE"]
+                break
+            else:
+                for i in range(frame_second - 5, frame_second + 6):
+                    if len(GT_json) <= i:
+                        break
+                    if GT_json[i]["IS_SLEEP"] == "O":
+                        if sleep_descript == "아기가 자는 중입니다.":
+                            write_ws['J'+str(count)] = "O"
+                            GT_Sleep_O_count += 1
+                            break
+                        else :
+                            write_ws['J'+str(count)] = "X"
+                            if (i == frame_second + 5):
+                                GT_Sleep_X_count += 1
+                        
+                    else:
+                        if sleep_descript == "아기가 깨어 있습니다.":
+                            write_ws['J'+str(count)] = "O"
+                            GT_Awake_O_count += 1
+                            break
+                        else :
+                            write_ws['J'+str(count)] = "X"
+                            if (i == frame_second + 5):
+                                GT_Awake_X_count += 1
+                for i in range(frame_second - (request_sec // 2 + 1), frame_second + (request_sec // 2 + 1)):
+                    if len(GT_json) <= i:
+                        break
+                    if GT_json[i]["CHANGE"] == 'O':
+                        if (GT_json[i]["IS_SLEEP"] == "O" and sleep_descript == "아기가 자는 중입니다.") or (GT_json[i]["IS_SLEEP"] == "X" and sleep_descript == "아기가 깨어 있습니다."):
+                            write_ws['L'+str(count)] = GT_json[i]["CHANGE"]
+                break
+    write_ws['K2'] = f"정확도 : {((GT_Sleep_O_count+GT_Awake_O_count) / count) * 100}"
+    write_ws['K3'] = f"SLEEP GT의 개수 : {GT_SLEEP_O}, AWAKE GT의 개수 : {GT_SLEEP_X}\nSleep GT 정답 개수 : {GT_Sleep_O_count}, Awake GT 정답 개수 : {GT_Awake_O_count},\nSleep GT 오답 개수 : {GT_Sleep_X_count}, Awake GT 오답 개수 : {GT_Awake_X_count},\n정답 총합 개수 : {GT_Awake_O_count + GT_Sleep_O_count}, 오답 총합 개수 : {GT_Awake_X_count + GT_Sleep_X_count}"
+
+def baby_sleep_check(write_ws, descript, count):
+    keywards = ["자고", "자는", "수면", "잠"]
+    for keyword in keywards:
+        if keyword in descript:
+            check = True
+            break
+        else:
+            check = False        
+    if check == True:
+        sleep_score = max(get_similarity(model_sentence, descript, "아기가 자고 있습니다."), get_similarity(model_sentence, descript, "아기가 자는 중입니다."), get_similarity(model_sentence, descript, "아기가 수면 중입니다."), get_similarity(model_sentence, descript, "아기가 잠에 들었습니다."))
+        write_ws['E'+str(count)] = sleep_score
+        if sleep_score >= 0.7:
+            sleep_descript = "아기가 자는 중입니다."
+            write_ws['H'+str(count)] = "O"
+        else :
+            sleep_descript = "아기가 깨어 있습니다."
+            write_ws['H'+str(count)] = "X"
+    else :
+        sleep_descript = "아기가 깨어 있습니다."
+        write_ws['H'+str(count)] = "X"
+    
+    write_ws['G'+str(count)] = sleep_descript
+    return sleep_descript
+
+def check_baby_sleep_change(write_ws, count, prediction_change_count):
+
+    for des_count in range(count, 1, -1):
+        if (des_count == 1):
+            write_ws['D'+str(des_count)] = 0
+            write_ws['F'+str(des_count)] = "O"
+            break
+        else:
+            descript_value = str(read_ws['G'+str(des_count)].value)
+            descript_check = str(read_ws['G'+str(des_count-1)].value)
+        score = get_similarity(model_sentence, descript_value, descript_check)
+        #sleep_score = get_similarity(model_sentence, descript_value, "아기가 자는 중입니다.")
+        write_ws['D'+str(des_count)] = score
+        #write_ws['G'+str(des_count)] = sleep_score
+    
+        if score > 0.65:
+            write_ws['F'+str(des_count)] = "X"
+        else:
+            write_ws['F'+str(des_count)] = "O"
+            prediction_change_count += 1
+    return prediction_change_count
+
+def create_result_sheet(folder_name, write_ws, prediction_change_count, GT_change_count):
+    cell_num = 1
+    count_img = -1
+    change_count = 0
+    file_list = os.listdir(folder_name + "/")
+    for row in write_ws.iter_rows():
+        if row[5].value == 'O':
+            if row[11].value == 'O':
+                change_count += 1
+
+            cell_num +=1
+            file_name = file_list[count_img]
+            image_path = folder_name + "/%s" %file_name
+
+            result_img = XLImage(image_path)
+            result_img.width = 300
+            result_img.height = 200
+
+            result_ws.add_image(result_img, 'A'+str(cell_num))
+            result_ws.append((cell.value for cell in row))
+
+            width, height = get_img_size(img.width, img.height)
+            result_ws.column_dimensions['A'].width = width
+            result_ws.row_dimensions[cell_num].height = height
+
+        count_img += 1
+    result_ws['K2'] = f"예측한 장면 전환 수 : {prediction_change_count}, GT 장면 전환 수 : {GT_change_count}, 올바른 장면 전환 예측의 개수 : {change_count} \n예측에 따른 장면 전환 정확도 {(change_count / prediction_change_count) * 100:.3f}"
 
 #엑셀 연동하기
 write_wb = Workbook()
@@ -76,12 +224,7 @@ with open(json_file, 'r', encoding='utf-8') as f:
     GT_json = json.load(f)
 
 count = 1
-GT_Sleep_O_count = 0
-GT_Sleep_X_count = 0
-GT_Awake_O_count = 0
-GT_Awake_X_count = 0
-GT_SLEEP_O = 0
-GT_SLEEP_X = 0
+
 fps = math.trunc(video.get(cv2.CAP_PROP_FPS))
 request_sec = 5
 get_frame = math.trunc(fps * request_sec)
@@ -98,6 +241,13 @@ GT_change_count = 0
 for GT_DICT in GT_json:
     if GT_DICT["CHANGE"] == 'O':
         GT_change_count += 1
+
+GT_Sleep_O_count = 0
+GT_Sleep_X_count = 0
+GT_Awake_O_count = 0
+GT_Awake_X_count = 0
+GT_SLEEP_O = 0
+GT_SLEEP_X = 0
 
 while(video.isOpened()):
     ret, image = video.read()
@@ -146,113 +296,27 @@ while(video.isOpened()):
         descript = result.get('result')
     
         write_ws.add_image(img, image_cell)
-        write_ws.append({'B':Time, 'C':descript})
+        write_ws['B'+str(count)] = Time
+        write_ws['C'+str(count)] = descript
 
         width, height = get_img_size(img.width, img.height)
 
-        #수면 여부 체크 시작
-        keywards = ["자고", "자는", "수면", "잠"]
-        for keyword in keywards:
-            if keyword in descript:
-                check = True
-                break
-            else:
-                check = False        
-
-        if check == True:
-            sleep_score = max(get_similarity(model_sentence, descript, "아기가 자고 있습니다."), get_similarity(model_sentence, descript, "아기가 자는 중입니다."), get_similarity(model_sentence, descript, "아기가 수면 중입니다."), get_similarity(model_sentence, descript, "아기가 잠에 들었습니다."))
-            write_ws['E'+str(count)] = sleep_score
-            if sleep_score >= 0.7:
-                sleep_descript = "아기가 자는 중입니다."
-                write_ws['H'+str(count)] = "O"
-            else :
-                sleep_descript = "아기가 깨어 있습니다."
-                write_ws['H'+str(count)] = "X"
-        else :
-            sleep_descript = "아기가 깨어 있습니다."
-            write_ws['H'+str(count)] = "X"
-        
-        write_ws['G'+str(count)] = sleep_descript
-        #수면 여부 체크 끝
-
-        #GT 체크
-        for GT_DICT in GT_json:
-            if GT_DICT["TIMESTAMP"] == Time:
-                write_ws['I'+str(count)] = GT_DICT["IS_SLEEP"]
-                
-                if GT_DICT["IS_SLEEP"] == "O":
-                    GT_SLEEP_O += 1
-                    if sleep_descript == "아기가 자는 중입니다.":
-                        GT_Sleep_O_count += 1
-                    else :
-                        GT_Sleep_X_count += 1
-                else :
-                    GT_SLEEP_X += 1
-                    if sleep_descript == "아기가 깨어 있습니다.":
-                        GT_Awake_O_count += 1
-                    else :
-                        GT_Awake_X_count += 1
-
-                if frame_second < 5:
-                    for i in range(frame_second, frame_second + 5):
-                        if GT_json[i]["IS_SLEEP"] == "O":
-                            if sleep_descript == "아기가 자는 중입니다.":
-                                write_ws['J'+str(count)] = "O"
-                                break
-                            else :
-                                write_ws['J'+str(count)] = "X"
-                            
-                        else:
-                            if sleep_descript == "아기가 깨어 있습니다.":
-                                write_ws['J'+str(count)] = "O"
-                                break
-                            else :
-                                write_ws['J'+str(count)] = "X"
-
-                    for i in range(frame_second, frame_second + (request_sec // 2 + 1)):
-                        
-                        if GT_json[i]["CHANGE"] == 'O':
-                            if (GT_json[i]["IS_SLEEP"] == "O" and sleep_descript == "아기가 자는 중입니다.") or (GT_json[i]["IS_SLEEP"] == "X" and sleep_descript == "아기가 깨어 있습니다."):
-                                write_ws['L'+str(count)] = GT_json[i]["CHANGE"]
-                    break
-
-                else:
-                    for i in range(frame_second - 5, frame_second + 5):
-                        if len(GT_json) <= i:
-                            break
-                        if GT_json[i]["IS_SLEEP"] == "O":
-                            if sleep_descript == "아기가 자는 중입니다.":
-                                write_ws['J'+str(count)] = "O"
-                                break
-                            else :
-                                write_ws['J'+str(count)] = "X"
-                            
-                        else:
-                            if sleep_descript == "아기가 깨어 있습니다.":
-                                write_ws['J'+str(count)] = "O"
-                                break
-                            else :
-                                write_ws['J'+str(count)] = "X"
-
-                    for i in range(frame_second - (request_sec // 2 + 1), frame_second + (request_sec // 2 + 1)):
-                        if len(GT_json) <= i:
-                            break
-                        if GT_json[i]["CHANGE"] == 'O':
-                            if (GT_json[i]["IS_SLEEP"] == "O" and sleep_descript == "아기가 자는 중입니다.") or (GT_json[i]["IS_SLEEP"] == "X" and sleep_descript == "아기가 깨어 있습니다."):
-                                write_ws['L'+str(count)] = GT_json[i]["CHANGE"]
-                    break
-        #GT 체크 끝
-
-        #소요 시간 및 A열 크기 지정
         write_ws.column_dimensions['A'].width = width
         write_ws.row_dimensions[count].height = height
+
+        #수면 여부 체크
+        sleep_descript = baby_sleep_check(write_ws, descript, count)
+
+        #GT 체크
+        GT_Check(sleep_descript, write_ws, GT_json, Time, frame_second)
+
+        #소요 시간 출력
+        
         end = time.time()
         print(f"vlm 요청 시간은 {end_time - start_time:.5f}초 입니다.\n")
         print(f"{end - start:.5f} sec\n")
 
-#GT 정확도 판단
-write_ws['K2'] = f"정확도 : {((GT_Sleep_O_count+GT_Awake_O_count) / count) * 100}"
-write_ws['K3'] = f"SLEEP GT의 개수 : {GT_SLEEP_O}, AWAKE GT의 개수 : {GT_SLEEP_X}\nSleep GT 정답 개수 : {GT_Sleep_O_count}, Awake GT 정답 개수 : {GT_Awake_O_count},\nSleep GT 오답 개수 : {GT_Sleep_X_count}, Awake GT 오답 개수 : {GT_Awake_X_count},\n정답 총합 개수 : {GT_Awake_O_count + GT_Sleep_O_count}, 오답 총합 개수 : {GT_Awake_X_count + GT_Sleep_X_count}"
+
 
 
 write_wb.save(filename=excel_folder_path)
@@ -261,58 +325,16 @@ video.release()
 read_wb = load_workbook(filename=excel_folder_path)
 read_ws = read_wb["Sheet"]
 prediction_change_count = 0
-for des_count in range(count, 1, -1):
-    if (des_count == 1):
-        write_ws['D'+str(des_count)] = 0
-        write_ws['F'+str(des_count)] = "O"
-        break
-    else:
-        descript_value = str(read_ws['G'+str(des_count)].value)
-        descript_check = str(read_ws['G'+str(des_count-1)].value)
-    score = get_similarity(model_sentence, descript_value, descript_check)
-    #sleep_score = get_similarity(model_sentence, descript_value, "아기가 자는 중입니다.")
-    write_ws['D'+str(des_count)] = score
-    #write_ws['G'+str(des_count)] = sleep_score
 
-    if score > 0.65:
-        write_ws['F'+str(des_count)] = "X"
-    else:
-        write_ws['F'+str(des_count)] = "O"
-        prediction_change_count += 1
-    #if sleep_score > 0.75:
-    #    write_ws['F'+str(des_count)] = "아기가 자는 중입니다."
-    #else:
-    #    write_ws['F'+str(des_count)] = "아기가 깨어 있습니다."
+#아기 수면 상태 전환 시점 확인 코드
+prediction_change_count = check_baby_sleep_change(write_ws, count, prediction_change_count)
 
 result_ws = write_wb.create_sheet('result')
 result_ws.append(["IMAGE","TIMESTAMP","DESCRIPT","SIMILARITY_SCORE","SLEEP_SCORE","SLEEP_CHANGE", "SLEEP_DESCRIPT", "SLEEP_PREDICTION", "SLEEP_GT", "SLEEP_GT_RESULT" , "TOTAL_SCORE", "SLEEP_CHANGE_GT"])
-#"아기 수면 여부", "수면 스코어"
-cell_num = 1
-count_img = -1
-change_count = 0
-file_list = os.listdir(folder_name + "/")
-for row in write_ws.iter_rows():
-    if row[5].value == 'O':
-        if row[11].value == 'O':
-            change_count += 1
-            
-        cell_num +=1
-        file_name = file_list[count_img]
-        image_path = folder_name + "/%s" %file_name
 
-        result_img = XLImage(image_path)
-        result_img.width = 300
-        result_img.height = 200
+#아기 수면 상태 전환 시점 모으는 시트 생성
+create_result_sheet(folder_name, write_ws, prediction_change_count, GT_change_count)
 
-        result_ws.add_image(result_img, 'A'+str(cell_num))
-        result_ws.append((cell.value for cell in row))
-
-        width, height = get_img_size(img.width, img.height)
-        result_ws.column_dimensions['A'].width = width
-        result_ws.row_dimensions[cell_num].height = height
-        
-    count_img += 1
-result_ws['K3'] = f"예측한 장면 전환 수 : {prediction_change_count}, GT 장면 전환 수 : {GT_change_count}, 올바른 장면 전환 예측의 개수 : {change_count} \n예측에 따른 장면 전환 정확도 {(change_count / prediction_change_count) * 100:.3f}"
 write_wb.save(filename=excel_folder_path)
 code_end = time.time()
 

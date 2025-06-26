@@ -246,7 +246,6 @@ async def root():
                     await new Promise(resolve => video.onseeked = () => resolve());
                 }
             }
-
         
             async function loadFilteredFrames() {
                 const response = await fetch('/frames_with_o');

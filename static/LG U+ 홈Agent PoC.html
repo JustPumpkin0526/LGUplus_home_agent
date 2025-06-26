@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>LG U+ 홈Agent PoC 영상 필터링</title>
+  <link rel="stylesheet" href="/static/LG U+ 홈Agent PoC.css">
+</head>
+<body>
+  <div class="header">
+    <h2>LG U+ 홈Agent PoC 영상 필터링</h2>
+  </div>
+  <div class="container">
+    <div class="left-panel">
+      <div class="video-setting">
+        <div class="Options-title">
+          <h2>Options</h2>
+        </div>
+        <div class="file_input">
+          <input type="file" id="imageFile" accept="image/,.jpg,.jpeg,.png">
+          <input type="file" id="videoFile" accept="video/,.mp4">
+          <button id="uploadButton">분석 시작</button>
+          <button id="resetButton" onclick="resetFile()">파일 초기화</button>
+        </div>
+        
+        <div class="time-set">
+          아기 수면 상태 재생 시간 (초): <input type="number" min="0" id="sleepTime" name="sleep_time" > <br>
+          sample 간격 (초): <input type="number" min="0" id="sampleTime" name="sample_time">
+        </div>
+        <div id="processTime">분석 프로세스 소요 시간 : </div>
+      </div>
+      <div class="table-section">
+        <div class="table-name">
+          <h1>아기 수면 상태 전환 분석 표</h1>
+        </div>
+        <div id="excelTableContainer" ></div>
+        <button onclick="loadExcelData()" id="excel_button">표 불러오기</button>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="video-section">
+        <video id="video"></video>
+        <img id="previewImage"/>
+
+        <div id="timeDisplay">00:00 / 00:00</div>
+
+        <div id="subtitleWrapper">
+            <div id="subtitle">여기에 자막이 표시됩니다.</div>
+        </div>
+
+        <button class="playvideo" onclick="playvideo()">영상 재생</button>
+        <button class="stopvideo" onclick="stopvideo()">재생 중단</button>
+
+        <div class="video_play_set">
+          영상 재생 방식:
+          <select name="video_option">
+            <option value="none">재생 방식 선택</option>
+            <option value="normal">전체 재생</option>
+            <option value="sample_play">샘플 재생</option>
+            <option value="change_play">전환 시점 재생</option>
+            <option value="sleep_time_play">수면 상태 전환 재생</option>
+          </select>
+        </div>
+
+        <div id="progressContainer">
+            <div id="progressBar"></div>
+        </div>
+
+        <div id="panorama"></div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/static/LG U+ 홈Agent PoC.js"></script>
+</body>
+</html>
