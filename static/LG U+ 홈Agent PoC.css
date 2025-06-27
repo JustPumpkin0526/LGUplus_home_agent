@@ -149,12 +149,21 @@ button:active {
   top: 20%;
 }
 
-.table-section button {
+.table-section #excel_button {
+  position: absolute;
   top: 50%;
   left: 45%;
-  position: absolute;
   display: block;
   margin: 0 auto;
+}
+
+.table-section #excel_reset {
+  position: absolute;
+  top: 16%;
+  left: 45%;
+  display: none;
+  margin: 0 auto;
+
 }
 
 .video-section {
@@ -252,7 +261,7 @@ button:active {
 }
 
 .video-section #progressContainer {
-  position: absolute;
+  position: relative;
   width: 78%;
   height: 33px;
   background-color: #ddd;
@@ -261,7 +270,7 @@ button:active {
   margin-bottom: 10px;
   left: 50%;
   transform: translate(-50%, 0%);
-  top: 77%;
+  top: 79%;
 }
 
 #progressContainer #progressBar {
@@ -271,11 +280,24 @@ button:active {
   transition: width 0.2s;
 }
 
+.marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  height: 40px;
+  width: 2px;
+  background-color: black;
+  opacity: 0.8;
+  z-index: 2;
+  cursor: pointer;
+  overflow: visible;
+}
+
 .video-section #panorama {
   position: absolute;
   width: 76.5%;
   height: 100px;
-  overflow-x: auto;
+  overflow: auto;
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 8px;
@@ -283,6 +305,10 @@ button:active {
   left: 50%;
   transform: translate(-50%, 0%);
   top: 85%;
+  display: flex;
+  flex-direction: row;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 #panorama img {
@@ -290,6 +316,8 @@ button:active {
   cursor: pointer;
   border-radius: 4px;
   transition: transform 0.2s;
+  margin-right: 8px;
+  flex-shrink: 0;
 }
 
 #panorama img:hover {

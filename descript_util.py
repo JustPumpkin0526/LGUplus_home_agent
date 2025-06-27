@@ -1,6 +1,7 @@
 from PIL import Image
 
 from fastapi import FastAPI, File, UploadFile, Form
+from fastapi.responses import JSONResponse
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -17,6 +18,7 @@ from sentence_transformers import SentenceTransformer
 
 import pandas as pd
 
+import json
 import shutil
 import random
 import time
@@ -144,7 +146,12 @@ def make_excel(file_name, sample_list, description_dict):
 
     folder_name, _ = os.path.splitext(file_name)
 
+    check_sleep_descript = ""
+
     for sample in sample_list:
+
+        sample_count += 1
+        
         img = XLImage(sample["File_path"])
         img.width = 300
         img.height = 200
@@ -159,7 +166,7 @@ def make_excel(file_name, sample_list, description_dict):
 
         Time = f"{hour:02d}:{minute:02d}:{second:02d}"
 
-        descript = description_dict[sample["Time"]]
+        descript = description_dict[str(sample["Time"])]
 
         write_ws['B'+str(sample_count)] = Time
         write_ws['C'+str(sample_count)] = descript
@@ -171,7 +178,7 @@ def make_excel(file_name, sample_list, description_dict):
         if descript == check_sleep_descript:
             write_ws['D'+str(sample_count)] = 'X'
         else:
-            check_sleep_descript =  descript
+            check_sleep_descript = descript
             write_ws['D'+str(sample_count)] = 'O'
         write_ws['E'+str(sample_count)] = descript
     write_wb.save(filename=f"uploaded_files/{folder_name}.xlsx")

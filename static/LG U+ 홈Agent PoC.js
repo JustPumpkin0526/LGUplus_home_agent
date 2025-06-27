@@ -7,16 +7,51 @@ const resetButton = document.getElementById('resetButton');
 const video = document.getElementById('video');
 const progressBar = document.getElementById('progressBar');
 const timeDisplay = document.getElementById('timeDisplay');
+const processTimeDiv = document.getElementById("processTime");
 
 let currentMode = null;
 let currentTask = null;
 
+let check_text = "";
+
+let play_check = 0;
+let changeTime = 0;
+let descript_dict;
+let progressContainer = document.getElementById('progressContainer');
+let sample_list;
+
+let change_dict = {};
+
+
+// 시간 HH:MM:SS 형태로 변환
 function formatTime(seconds) {
   const min = Math.floor(seconds / 60);
   const sec = Math.floor(seconds % 60);
   return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
+//비동기 작업 및 현재 작업 중단 함수
+async function stopCurrentTask() {
+  if (currentTask && typeof currentTask.cancel === "function") {
+    currentTask.cancel();
+  }
+  await new Promise(resolve => setTimeout(resolve, 100));
+  currentMode = null;
+}
+
+//아기 수면 상태 전환 시점의 description 및 시간 정보 저장 함수
+async function sleepChangeCheck() {
+  while (changeTime <= video.duration) {
+    if (descript_dict[changeTime] != check_text) {
+      change_dict[changeTime] = descript_dict[changeTime];
+      check_text = descript_dict[changeTime];
+    }
+    changeTime += Number(document.getElementById("sampleTime").value);
+  }
+  changeTime = 0;
+}
+
+//타임 라인, 자막 처리 기능
 video.addEventListener('timeupdate', () => {
   const percent = (video.currentTime / video.duration) * 100;
   progressBar.style.width = percent + "%";
@@ -28,13 +63,12 @@ video.addEventListener('timeupdate', () => {
   }
 
   if (Math.floor(video.currentTime) in descript_dict) {
+    console.log("자막이 표시됩니다.")
     subtitleDiv.textContent = descript_dict[Math.floor(video.currentTime)];
-  }
-  else {
-    subtitleDiv.textContent = '여기에 자막이 표시됩니다.'
   }
 })
 
+// 이미지 파일 삽입 시 띄우는 기능
 imageInput.addEventListener("change", () => {
   const file = imageInput.files[0];
 
@@ -75,6 +109,109 @@ videoInput.addEventListener("change", () => {
   }
 });
 
+async function startAnalyze() {
+  const startTime = Date.now();
+
+
+  const intervalId = setInterval(() => {
+    const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+    const min = Math.floor(elapsedSec / 60);
+    const sec = elapsedSec % 60;
+    if (elapsedSec < 60) {
+      processTimeDiv.textContent = `분석 프로세스 소요 시간 : ${sec}초`;
+    } else if (elapsedSec < 3600) {
+      processTimeDiv.textContent = `분석 프로세스 소요 시간 : ${min}분 ${sec}초`;
+    } else {
+      const hour = Math.floor(min / 60);
+      processTimeDiv.textContent = `분석 프로세스 소요 시간 : ${hour}시 ${min % 60}분 ${sec}초`;
+    }
+  }, 100);
+
+  try {
+    const img_file = imageInput.files[0];
+    const vid_file = videoInput.files[0];
+
+    if (!img_file && !vid_file) {
+      alert("파일을 선택해주세요.");
+      return;
+    }
+
+    if (!sampleTime.value) {
+      alert("샘플 간격을 입력해주세요.");
+      return;
+    }
+
+    if (imageInput.disabled === false) {
+      const formData = new FormData();
+      formData.append("file", img_file);
+      const imgRes = await fetch("/upload_image", {
+        method: "POST",
+        body: formData
+      });
+      const imgData = await imgRes.json();
+      subtitleDiv.textContent = imgData.descript || "분석 결과를 불러올 수 없습니다.";
+    }
+
+    if (videoInput.disabled === false) {
+      subtitleDiv.textContent = "샘플 데이터 제작 중...";
+      const formData = new FormData();
+      formData.append("file", vid_file);
+      formData.append("sample_time", sampleTime.value);
+      const sampleRes = await fetch("/get_sample", {
+        method: "POST",
+        body: formData
+      });
+      const sampleData = await sampleRes.json();
+      if (!sampleData) {
+        subtitleDiv.textContent = "샘플 데이터 제작 실패";
+        return;
+      }
+
+      sample_list = sampleData.sample_list;
+
+      console.log(sample_list);
+
+      subtitleDiv.textContent = "영상 분석 중...";
+      const vlmForm = new FormData();
+      vlmForm.append("sample_list", JSON.stringify(sample_list));
+      const vlmRes = await fetch("/vlm_query", {
+        method: "POST",
+        body: vlmForm
+      });
+      const vlmData = await vlmRes.json();
+      if (!vlmData) {
+        subtitleDiv.textContent = "영상 분석 실패.";
+        return;
+      }
+
+      descript_dict = vlmData.descript_dict;
+
+      subtitleDiv.textContent = "엑셀 파일 생성 중...";
+      const excelForm = new FormData();
+      excelForm.append("file", vid_file);
+      excelForm.append("sample_list", JSON.stringify(sample_list));
+      excelForm.append("descript_dict", JSON.stringify(descript_dict));
+      const excelRes = await fetch("/make_excel", {
+        method: "POST",
+        body: excelForm
+      });
+      await excelRes.json();
+
+      subtitleDiv.textContent = "엑셀 파일 생성 완료.";
+
+      await sleepChangeCheck();
+      await addMarkersToProgressBar(Object.keys(change_dict));
+      makeThumbnail();
+    }
+  } catch (err) {
+    console.error("에러 발생:", err);
+    subtitleDiv.textContent = "처리 중 오류가 발생했습니다.";
+  } finally {
+    clearInterval(intervalId); // ✅ 타이머 종료는 항상 보장
+  }
+}
+
+
 function resetFile() {
   videoInput.disabled = false;
   imageInput.disabled = false;
@@ -84,103 +221,86 @@ function resetFile() {
   video.style.display = "none";
   video.src = "";
   video.currentTime = 0;
-  document.getElementById('excel_button').style.display = "block";
   subtitleDiv.textContent = "여기에 자막이 표시됩니다.";
+  progressBar.style.width = "0%";
+  timeDisplay.textContent = "00:00 / 00:00";
+  document.getElementById("panorama").innerHTML = "";
+  document.getElementById("progressBar").innerHTML = "";
+  processTimeDiv.textContent = `분석 프로세스 소요 시간 : -초`;
 }
 
-let play_check = 0;
-let changeTime = 0;
-let descript_dict = {
-  0 : "아기가 자는 중입니다.",
-  20 : "아기가 자는 중입니다.",
-  40 : "아기가 자는 중입니다.",
-  60 : "아기가 자는 중입니다.",
-  80 : "아기가 자는 중입니다.",
-  100 : "아기가 자는 중입니다.",
-  120 : "아기가 자는 중입니다.",
-  140 : "아기가 자는 중입니다.",
-  160 : "아기가 자는 중입니다.",
-  180 : "아기가 자는 중입니다.",
-  200 : "아기가 자는 중입니다.",
-  220 : "아기가 자는 중입니다.",
-  240 : "아기가 자는 중입니다.",
-  260 : "아기가 자는 중입니다.",
-  280 : "아기가 자는 중입니다.",
-  300 : "아기가 자는 중입니다.",
-  320 : "아기가 자는 중입니다.",
-  340 : "아기가 자는 중입니다.",
-  360 : "아기가 자는 중입니다.",
-  380 : "아기가 자는 중입니다.",
-  400 : "아기가 자는 중입니다.",
-  420 : "아기가 자는 중입니다.",
-  440 : "아기가 자는 중입니다.",
-  460 : "아기가 자는 중입니다.",
-  480 : "아기가 깨어 있습니다.",
-  500 : "아기가 자는 중입니다.",
-  520 : "아기가 자는 중입니다.",
-  540 : "아기가 자는 중입니다.",
-  560 : "아기가 자는 중입니다.",
-  580 : "아기가 자는 중입니다.",
-  600 : "아기가 자는 중입니다.",
-  620 : "아기가 자는 중입니다.",
-  640 : "아기가 자는 중입니다.",
-  660 : "아기가 자는 중입니다.",
-  680 : "아기가 자는 중입니다.",
-  700 : "아기가 자는 중입니다.",
-  720 : "아기가 자는 중입니다.",
-  740 : "아기가 자는 중입니다.",
-  760 : "아기가 자는 중입니다.",
-  780 : "아기가 자는 중입니다.",
-  800 : "아기가 자는 중입니다.",
-  820 : "아기가 자는 중입니다.",
-  840 : "아기가 자는 중입니다.",
-  860 : "아기가 자는 중입니다.",
-  880 : "아기가 자는 중입니다.",
-  900 : "아기가 자는 중입니다.",
-  920 : "아기가 자는 중입니다.",
-  940 : "아기가 자는 중입니다.",
-  960 : "아기가 자는 중입니다.",
-  980 : "아기가 자는 중입니다.",
-  1000 : "아기가 자는 중입니다.",
-  1020 : "아기가 자는 중입니다.",
-  1040 : "아기가 자는 중입니다.",
-  1060 : "아기가 자는 중입니다.",
-  1080 : "아기가 자는 중입니다.",
-  1100 : "아기가 자는 중입니다.",
-  1120 : "아기가 자는 중입니다.",
-  1140 : "아기가 자는 중입니다.",
-  1160 : "아기가 자는 중입니다.",
-  1180 : "아기가 자는 중입니다.",
-  1200 : "아기가 자는 중입니다.",
-  1220 : "아기가 자는 중입니다.",
-  1240 : "아기가 자는 중입니다.",
-  1260 : "아기가 자는 중입니다.",
-  1280 : "아기가 자는 중입니다.",
-  1300 : "아기가 자는 중입니다.",
-  1320 : "아기가 자는 중입니다.",
-  1340 : "아기가 자는 중입니다.",
-  1360 : "아기가 자는 중입니다.",
-  1380 : "아기가 자는 중입니다.",
-  1400 : "아기가 자는 중입니다.",
-  1420 : "아기가 자는 중입니다.",
-  1440 : "아기가 자는 중입니다.",
-  1460 : "아기가 자는 중입니다.",
-  1480 : "아기가 깨어 있습니다.",
-  1500 : "아기가 자는 중입니다.",
-  1520 : "아기가 자는 중입니다.",
-  1540 : "아기가 깨어 있습니다.",
-  1560 : "아기가 깨어 있습니다.",
-  1580 : "아기가 자는 중입니다.",
-  1600 : "아기가 자는 중입니다.",
-  1620 : "아기가 깨어 있습니다.",
-  1640 : "아기가 자는 중입니다.",
-  1660 : "아기가 자는 중입니다.",
-  1680 : "아기가 자는 중입니다.",
-  1700 : "아기가 자는 중입니다.",
-  1720 : "아기가 자는 중입니다."
+async function loadExcelData() {
+  const vid_file = videoInput.files[0];
+
+  if (!vid_file) {
+    alert("동영상을 선택해주세요.");
+    return;
+  }
+
+  document.getElementById('excel_button').style.display = 'none'
+
+
+  const formData = new FormData();
+  formData.append("file", vid_file);
+
+  const response = await fetch('/excel_data', {
+    method: "POST",
+    body: formData
+  });
+
+  const result = await response.json();
+  const container = document.getElementById('excelTableContainer');
+  container.innerHTML = '';
+  const table = document.createElement('table');
+  table.style.borderCollapse = 'collapse';
+  table.style.width = '100%';
+  table.style.fontSize = '14px';
+  table.style.border = '1px solid #ccc';
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+  result.columns.forEach(col => {
+    const th = document.createElement('th');
+    th.textContent = col;
+    th.style.padding = '8px';
+    th.style.border = '1px solid #ccc';
+    th.style.backgroundColor = '#f0f0f0';
+    th.style.textAlign = 'left';
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  result.data.forEach(row => {
+    const tr = document.createElement('tr');
+    row.forEach((cell, colIndex) => {
+      const td = document.createElement('td');
+      td.style.padding = '8px';
+      td.style.border = '1px solid #ccc';
+      if (colIndex === 0 && typeof cell === 'string' && cell.trim() !== '') {
+        const img = document.createElement('img');
+        img.src = cell.trim();
+        img.style.height = '80px';
+        img.style.objectFit = 'contain';
+        td.appendChild(img);
+      } else {
+        td.textContent = cell !== null ? cell : '';
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.appendChild(table);
+  document.getElementById('excel_reset').style.display = 'block'
 }
 
-let = sample_list
+async function excel_reset() {
+  const container = document.getElementById('excelTableContainer');
+  container.innerHTML = '';
+  document.getElementById('excel_button').style.display = 'block';
+  document.getElementById('excel_reset').style.display = 'none'
+
+}
 
 async function playvideo() {
   const video_option = document.querySelector("select[name=video_option] option:checked").value
@@ -235,7 +355,7 @@ async function playvideo() {
           await new Promise(resolve => video.onseeked = () => resolve());
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        
+
         changeTime += Number(document.getElementById("sampleTime").value);
 
         if (changeTime >= video.duration) {
@@ -244,7 +364,9 @@ async function playvideo() {
       }
 
     }
+
     else if (video_option == "sleep_time_play") {
+
       if (!descript_dict) {
         alert("먼저 영상을 업로드하여 분석을 완료해주세요.");
         return;
@@ -256,34 +378,32 @@ async function playvideo() {
       let cancel = false;
       currentTask = { cancel: () => cancel = true };
 
-      while (changeTime <= video.duration) {
-
+      console.log(change_dict);
+      for (var key in change_dict) {
         if (cancel) return;
+        video.currentTime = key;
+        if (change_dict[key] == "아기가 자는 중입니다.") {
+          if (cancel) return;
+          video.play();
+          await new Promise(resolve => video.onseeked = () => resolve());
+          await new Promise(resolve => setTimeout(resolve, Number(document.getElementById("sleepTime").value) * 1000));
+          video.pause();
+        }
+        else if (change_dict[key] == "아기가 깨어 있습니다.") {
+          if (cancel) return;
+          video.play();
+          await new Promise(resolve => video.onseeked = () => resolve());
+          await new Promise(resolve => setTimeout(resolve, 1000));
 
-        if (descript_dict[changeTime] != check_text) {
-          if (descript_dict[changeTime] == "아기가 자는 중입니다.") {
-            let video_playing = true;
-            check_text = descript_dict[changeTime];
-            video.currentTime = changeTime;
-            video.play(); 
-            await new Promise(resolve => video.onseeked = () => resolve());
-            await new Promise(resolve => setTimeout(resolve, Number(document.getElementById('sleepTime').value) * 1000));
-            video.pause();
+          while (subtitleDiv.textContent !== "아기가 자는 중입니다.") {
+            if (cancel) return;
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
-          if (descript_dict[changeTime] == "아기가 깨어 있습니다.") {
-            let video_playing = true;
-            video.play();
-          }
-          else {
-            setTimeout(function () {
-              changeTime++;
-            }, 1000);
-          }
+          video.pause();
         }
       }
     }
-  }
-  else {
+  } else {
     play_check = 0;
     video.pause();
     video.currentTime = 0;
@@ -298,150 +418,79 @@ async function stopvideo() {
   await stopCurrentTask();
 }
 
-async function stopCurrentTask() {
-  if (currentTask && typeof currentTask.cancel === "function") {
-    currentTask.cancel();
-  }
-  await new Promise(resolve => setTimeout(resolve, 100));
-  currentMode = null;
+async function addMarkersToProgressBar(change_dict) {
+  document.querySelectorAll('.marker').forEach(m => m.remove());
+
+  if (!video.duration || video.duration === Infinity) return;
+
+  const tooltip = document.createElement('div');
+  tooltip.id = 'markerTooltip';
+  tooltip.style.position = 'absolute';
+  tooltip.style.padding = '4px 8px';
+  tooltip.style.fontSize = '12px';
+  tooltip.style.backgroundColor = 'black';
+  tooltip.style.color = 'white';
+  tooltip.style.borderRadius = '4px';
+  tooltip.style.pointerEvents = 'none';
+  tooltip.style.opacity = 0;
+  tooltip.style.transition = 'opacity 0.2s';
+  tooltip.style.zIndex = 5;
+  document.body.appendChild(tooltip);
+
+  change_dict.forEach(time => {
+    const marker = document.createElement('div');
+    marker.classList.add('marker');
+    const percent = (time / video.duration) * 100;
+    marker.style.left = `${percent}%`;
+
+    marker.addEventListener('click', async (e) => {
+      await stopCurrentTask();
+      currentMode = null;
+      video.pause();
+      video.currentTime = time;
+      subtitle.textContent = ``;
+    });
+
+    marker.addEventListener('mouseover', (e) => {
+      let currentTime = formatTime(time);
+      const subText = descript_dict[time] + ' 현재 시간: ' + currentTime;
+      tooltip.textContent = subText;
+      const rect = e.target.getBoundingClientRect();
+      tooltip.style.left = `${rect.left + window.scrollX}px`;
+      tooltip.style.top = `${rect.top + window.scrollY - 28}px`;
+      tooltip.style.opacity = 1;
+    });
+
+    marker.addEventListener('mouseout', () => {
+      tooltip.style.opacity = 0;
+    });
+
+    progressContainer.appendChild(marker);
+  });
 }
 
-uploadButton.addEventListener("click", () => {
+async function makeThumbnail() {
+  const panorama = document.getElementById("panorama");
+  panorama.innerHTML = ""; // 기존 썸네일 초기화
 
-  const img_file = imageInput.files[0];
-  const vid_file = videoInput.files[0];
-  if (!img_file && !vid_file) {
-    alert("파일을 선택해주세요.");
-    return;
-  }
+  Object.keys(change_dict).forEach(timeStr => {
+    const time = parseInt(timeStr);
 
-  if (imageInput.disabled == false) {
-    const formData = new FormData();
-    formData.append("file", img_file);
+    // sample_list에서 Time이 일치하는 항목을 찾음
+    const matched = sample_list.find(item => item.Time === time);
+    if (!matched) return;
 
-    fetch("/upload_image", {
-      method: "POST",
-      body: formData
-    })
-      .then(response => response.json())
-      .then(data => {
-        console.log("서버 응답:", data);
-        if (data.descript) {
-          subtitleDiv.textContent = data.descript;
-        } else {
-          subtitleDiv.textContent = "분석 결과를 불러올 수 없습니다.";
-        }
-      })
-      .catch(error => {
-        console.error("에러 발생:", error);
-        subtitleDiv.textContent = "서버 요청 중 오류가 발생했습니다.";
-      });
-  }
+    const img = document.createElement("img");
+    img.src = matched.File_path; // 경로 지정
+    img.title = `${formatTime(time)} - ${change_dict[time]}`;
+    img.style.margin = "5px";
+    img.style.height = "80px";
+    img.style.cursor = "pointer";
 
-  if (videoInput.disabled == false) {
-    subtitleDiv.textContent = "샘플 데이터 제작 중...";
-
-    const formData = new FormData();
-    formData.append("file", vid_file);
-    const sampleTime = document.getElementById("sampleTime").value;
-    if (!sampleTime) {
-      alert("샘플 간격을 입력해주세요.");
-      return;
-    }
-    formData.append("sample_time", sampleTime);
-
-    fetch("/get_sample", {
-      method: "POST",
-      body: formData
-    })
-      .then(response => response.json())
-      .then(data => {
-        console.log("서버 응답:", data);
-        if (data) {
-          sample_list = data.sample_list;
-          subtitleDiv.textContent = "영상 분석 중...";
-          formData = new FormData();
-          formData.append("sample_list", sample_list);
-          fetch("/vlm_query", {
-            method: "POST",
-            body: formData
-          })
-            .then(response => response.json())
-            .then(data =>{
-              if (data){
-                descript_dict = data.descript_dict
-              }
-            })
-        } else {
-          subtitleDiv.textContent = "샘플 데이터 제작에 실패했습니다.";
-        }
-      })
-      .catch(error => {
-        console.error("에러 발생:", error);
-        subtitleDiv.textContent = "서버 요청 중 오류가 발생했습니다.";
-      });
-  }
-});
-
-async function loadExcelData() {
-  const vid_file = videoInput.files[0];
-
-  if (!vid_file) {
-    alert("동영상을 선택해주세요.");
-    return;
-  }
-
-  document.getElementById('excel_button').style.display = 'none'
-
-  const formData = new FormData();
-  formData.append("file", vid_file);
-
-  const response = await fetch('/excel_data', {
-    method: "POST",
-    body: formData
-  });
-
-  const result = await response.json();
-  const container = document.getElementById('excelTableContainer');
-  container.innerHTML = '';
-  const table = document.createElement('table');
-  table.style.borderCollapse = 'collapse';
-  table.style.width = '100%';
-  table.style.fontSize = '14px';
-  table.style.border = '1px solid #ccc';
-  const thead = document.createElement('thead');
-  const headerRow = document.createElement('tr');
-  result.columns.forEach(col => {
-    const th = document.createElement('th');
-    th.textContent = col;
-    th.style.padding = '8px';
-    th.style.border = '1px solid #ccc';
-    th.style.backgroundColor = '#f0f0f0';
-    th.style.textAlign = 'left';
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-  const tbody = document.createElement('tbody');
-  result.data.forEach(row => {
-    const tr = document.createElement('tr');
-    row.forEach((cell, colIndex) => {
-      const td = document.createElement('td');
-      td.style.padding = '8px';
-      td.style.border = '1px solid #ccc';
-      if (colIndex === 0 && typeof cell === 'string' && cell.trim() !== '') {
-        const img = document.createElement('img');
-        img.src = cell.trim();
-        img.style.height = '80px';
-        img.style.objectFit = 'contain';
-        td.appendChild(img);
-      } else {
-        td.textContent = cell !== null ? cell : '';
-      }
-      tr.appendChild(td);
+    img.addEventListener("click", () => {
+      video.currentTime = time;
     });
-    tbody.appendChild(tr);
+
+    panorama.appendChild(img);
   });
-  table.appendChild(tbody);
-  container.appendChild(table);
 }

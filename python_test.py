@@ -25,35 +25,33 @@ async def upload_image(file: UploadFile = File(...)):
     return JSONResponse(content={"descript": descript})
 
 @app.post("/get_sample")
-async def upload_video(file: UploadFile = File(...), sample_time: int = Form(0)):
+async def sample(file: UploadFile = File(...), sample_time: int = Form(0)):
     file_location = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
-    print(sample_time)
     sample_list = get_sample(file.filename, sample_time)
 
     return JSONResponse(content={"sample_list":sample_list})
 
 @app.post("/vlm_query")
-async def upload_video(sample_list: list = Form(0)):
-
-    descript = get_description(sample_list)
-
-    return JSONResponse(content={"descript_dict":descript})
+async def vlm_query(sample_list: str = Form(...)):
+    parsed_list = json.loads(sample_list)
+    print("영상 분석 함수 진입")
+    return JSONResponse(content={"descript_dict": get_description(parsed_list)})
 
 @app.post("/make_excel")
-async def upload_video(file: UploadFile = File(...), sample_time: int = Form(0)):
-    file_location = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    print(sample_time)
-    sample_list = get_sample(file.filename, sample_time)
+async def excel(
+    file: UploadFile = File(...),
+    sample_list: str = Form(...),            # ✅ 문자열로 받기
+    descript_dict: str = Form(...)           # ✅ 문자열로 받기
+):
+    parsed_sample_list = json.loads(sample_list)
+    parsed_descript_dict = json.loads(descript_dict)
 
-    descript = get_description(sample_list)
+    make_excel(file.filename, parsed_sample_list, parsed_descript_dict)
 
-    make_excel(file.filename, sample_list, descript)
+    return JSONResponse(content={"message": "엑셀 생성 완료"})
 
-    return JSONResponse(content={"descript_dict":descript})
 
 @app.post("/excel_data")
 async def get_excel_data(file: UploadFile = File(...)):
