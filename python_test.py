@@ -30,13 +30,14 @@ async def sample(file: UploadFile = File(...), sample_time: int = Form(0)):
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     sample_list = get_sample(file.filename, sample_time)
-
+    print(sample_list)
     return JSONResponse(content={"sample_list":sample_list})
 
 @app.post("/vlm_query")
 async def vlm_query(sample_list: str = Form(...)):
     parsed_list = json.loads(sample_list)
     print("영상 분석 함수 진입")
+    print(parsed_list)
     return JSONResponse(content={"descript_dict": get_description(parsed_list)})
 
 @app.post("/make_excel")

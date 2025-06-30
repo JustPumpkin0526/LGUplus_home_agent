@@ -9,6 +9,10 @@ const progressBar = document.getElementById('progressBar');
 const timeDisplay = document.getElementById('timeDisplay');
 const processTimeDiv = document.getElementById("processTime");
 
+let processCheck = false;
+
+let file_type = "";
+
 let currentMode = null;
 let currentTask = null;
 
@@ -19,15 +23,16 @@ let changeTime = 0;
 let descript_dict;
 let progressContainer = document.getElementById('progressContainer');
 let sample_list;
-
+let sampleTime = document.getElementById("sampleTime");
 let change_dict = {};
 
 
 // 시간 HH:MM:SS 형태로 변환
 function formatTime(seconds) {
+  const hour = Math.floor(seconds / 60 / 60);
   const min = Math.floor(seconds / 60);
   const sec = Math.floor(seconds % 60);
-  return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  return `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
 //비동기 작업 및 현재 작업 중단 함수
@@ -42,9 +47,9 @@ async function stopCurrentTask() {
 //아기 수면 상태 전환 시점의 description 및 시간 정보 저장 함수
 async function sleepChangeCheck() {
   while (changeTime <= video.duration) {
-    if (descript_dict[changeTime] != check_text) {
-      change_dict[changeTime] = descript_dict[changeTime];
-      check_text = descript_dict[changeTime];
+    if (descript_dict[changeTime]["sleep"] != check_text) {
+      change_dict[changeTime] = descript_dict[changeTime]["sleep"];
+      check_text = descript_dict[changeTime]["sleep"];
     }
     changeTime += Number(document.getElementById("sampleTime").value);
   }
@@ -64,7 +69,7 @@ video.addEventListener('timeupdate', () => {
 
   if (Math.floor(video.currentTime) in descript_dict) {
     console.log("자막이 표시됩니다.")
-    subtitleDiv.textContent = descript_dict[Math.floor(video.currentTime)];
+    subtitleDiv.textContent = descript_dict[Math.floor(video.currentTime)]["descript"];
   }
 })
 
@@ -109,22 +114,22 @@ videoInput.addEventListener("change", () => {
   }
 });
 
+//업로드 파일 분석 기능
 async function startAnalyze() {
   const startTime = Date.now();
 
+  document.getElementById("panorama").innerHTML = "";
+
+  excel_reset()
+
+  processCheck = false;
 
   const intervalId = setInterval(() => {
     const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
-    const min = Math.floor(elapsedSec / 60);
     const sec = elapsedSec % 60;
-    if (elapsedSec < 60) {
-      processTimeDiv.textContent = `분석 프로세스 소요 시간 : ${sec}초`;
-    } else if (elapsedSec < 3600) {
-      processTimeDiv.textContent = `분석 프로세스 소요 시간 : ${min}분 ${sec}초`;
-    } else {
-      const hour = Math.floor(min / 60);
-      processTimeDiv.textContent = `분석 프로세스 소요 시간 : ${hour}시 ${min % 60}분 ${sec}초`;
-    }
+    const min = Math.floor(elapsedSec / 60);
+    const hour = Math.floor(min / 60);
+    processTimeDiv.textContent = `분석 프로세스 소요 시간 : ${hour}시 ${min}분 ${sec}초`;
   }, 100);
 
   try {
@@ -198,6 +203,7 @@ async function startAnalyze() {
       await excelRes.json();
 
       subtitleDiv.textContent = "엑셀 파일 생성 완료.";
+      processCheck = true;
 
       await sleepChangeCheck();
       await addMarkersToProgressBar(Object.keys(change_dict));
@@ -207,11 +213,11 @@ async function startAnalyze() {
     console.error("에러 발생:", err);
     subtitleDiv.textContent = "처리 중 오류가 발생했습니다.";
   } finally {
-    clearInterval(intervalId); // ✅ 타이머 종료는 항상 보장
+    clearInterval(intervalId); 
   }
 }
 
-
+//파일 초기화 기능
 function resetFile() {
   videoInput.disabled = false;
   imageInput.disabled = false;
@@ -227,13 +233,19 @@ function resetFile() {
   document.getElementById("panorama").innerHTML = "";
   document.getElementById("progressBar").innerHTML = "";
   processTimeDiv.textContent = `분석 프로세스 소요 시간 : -초`;
+  processCheck = false;
 }
 
+//표 불러오기 기능
 async function loadExcelData() {
   const vid_file = videoInput.files[0];
 
   if (!vid_file) {
     alert("동영상을 선택해주세요.");
+    return;
+  }
+  if (!processCheck) {
+    alert("분석 결과가 없습니다. 분석을 끝마치고 다시 실행해주세요.");
     return;
   }
 
@@ -294,6 +306,7 @@ async function loadExcelData() {
   document.getElementById('excel_reset').style.display = 'block'
 }
 
+//표 초기화 기능
 async function excel_reset() {
   const container = document.getElementById('excelTableContainer');
   container.innerHTML = '';
@@ -302,6 +315,7 @@ async function excel_reset() {
 
 }
 
+//영상 재생 기능
 async function playvideo() {
   const video_option = document.querySelector("select[name=video_option] option:checked").value
   check_text = "";
@@ -321,6 +335,10 @@ async function playvideo() {
         alert("샘플 간격을 입력하시오.");
         return;
       }
+      if (!processCheck) {
+        alert("먼저 영상을 업로드하여 분석을 완료해주세요.");
+        return;
+      }
       if (currentMode === "sample") return;
       await stopCurrentTask();
       currentMode = "sample";
@@ -337,7 +355,7 @@ async function playvideo() {
 
     }
     else if (video_option == "change_play") {
-      if (!descript_dict) {
+      if (!processCheck) {
         alert("먼저 영상을 업로드하여 분석을 완료해주세요.");
         return;
       }
@@ -347,27 +365,18 @@ async function playvideo() {
 
       let cancel = false;
       currentTask = { cancel: () => cancel = true };
-      while (changeTime <= video.duration) {
+      for(var key in change_dict){
         if (cancel) return;
-        if (descript_dict[changeTime] != check_text) {
-          check_text = descript_dict[changeTime];
-          video.currentTime = changeTime;
-          await new Promise(resolve => video.onseeked = () => resolve());
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        changeTime += Number(document.getElementById("sampleTime").value);
-
-        if (changeTime >= video.duration) {
-          video.currentTime = video.duration;
-        }
+        video.currentTime = key;
+        await new Promise(resolve => video.onseeked = () => resolve());
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
     }
 
     else if (video_option == "sleep_time_play") {
 
-      if (!descript_dict) {
+      if (!processCheck) {
         alert("먼저 영상을 업로드하여 분석을 완료해주세요.");
         return;
       }
@@ -382,14 +391,14 @@ async function playvideo() {
       for (var key in change_dict) {
         if (cancel) return;
         video.currentTime = key;
-        if (change_dict[key] == "아기가 자는 중입니다.") {
+        if (change_dict[key]["sleep"] == "아기가 자는 중입니다.") {
           if (cancel) return;
           video.play();
           await new Promise(resolve => video.onseeked = () => resolve());
           await new Promise(resolve => setTimeout(resolve, Number(document.getElementById("sleepTime").value) * 1000));
           video.pause();
         }
-        else if (change_dict[key] == "아기가 깨어 있습니다.") {
+        else if (change_dict[key]["sleep"]  == "아기가 깨어 있습니다.") {
           if (cancel) return;
           video.play();
           await new Promise(resolve => video.onseeked = () => resolve());
@@ -453,7 +462,7 @@ async function addMarkersToProgressBar(change_dict) {
 
     marker.addEventListener('mouseover', (e) => {
       let currentTime = formatTime(time);
-      const subText = descript_dict[time] + ' 현재 시간: ' + currentTime;
+      const subText = descript_dict[time]["descript"] + ' 현재 시간: ' + currentTime;
       tooltip.textContent = subText;
       const rect = e.target.getBoundingClientRect();
       tooltip.style.left = `${rect.left + window.scrollX}px`;

@@ -1,4 +1,5 @@
 from PIL import Image
+import numpy as np
 
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
@@ -12,7 +13,7 @@ from openpyxl import load_workbook
 from openpyxl.drawing.image import Image as XLImage
 
 from inference_client import infer_from_server_with_image_object
-from textsimilarity import get_similarity
+#from textsimilarity import get_similarity
 
 from sentence_transformers import SentenceTransformer
 
@@ -39,24 +40,24 @@ def DeleteAllFiles(folderpath):
     else:
         return 'Directory Not Found'
     
-def baby_sleep_check(descript, model_sentence):
-    keywards = ["자고", "자는", "수면", "잠"]
-    for keyword in keywards:
-        if keyword in descript:
-            check = True
-            break
-        else:
-            check = False        
-    if check == True:
-        sleep_score = max(get_similarity(model_sentence, descript, "아기가 자고 있습니다."), get_similarity(model_sentence, descript, "아기가 자는 중입니다."), get_similarity(model_sentence, descript, "아기가 수면 중입니다."), get_similarity(model_sentence, descript, "아기가 잠에 들었습니다."))
-
-        if sleep_score >= 0.7:
-            sleep_descript = "아기가 자는 중입니다."
-        else :
-            sleep_descript = "아기가 깨어 있습니다."
-    else :
-        sleep_descript = "아기가 깨어 있습니다."
-    return sleep_descript
+#def baby_sleep_check(descript, model_sentence):
+#    keywards = ["자고", "자는", "수면", "잠"]
+#    for keyword in keywards:
+#        if keyword in descript:
+#            check = True
+#            break
+#        else:
+#            check = False        
+#    if check == True:
+#        sleep_score = max(get_similarity(model_sentence, descript, "아기가 자고 있습니다."), get_similarity(model_sentence, descript, "아기가 자는 중입니다."), get_similarity(model_sentence, descript, "아기가 수면 중입니다."), get_similarity(model_sentence, descript, "아기가 잠에 들었습니다."))
+#
+#        if sleep_score >= 0.7:
+#            sleep_descript = "아기가 자는 중입니다."
+#        else :
+#            sleep_descript = "아기가 깨어 있습니다."
+#    else :
+#        sleep_descript = "아기가 깨어 있습니다."
+#    return sleep_descript
 
 def get_image_description(file_name):
     file_path = f"uploaded_files/{file_name}"
@@ -69,7 +70,7 @@ def get_image_description(file_name):
 
     return descript
     
-def get_sample(file_name, request_sec = 0):
+def get_sample(file_name, request_sec):
     file_path = f"uploaded_files/{file_name}"
     video = cv2.VideoCapture(file_path) 
     folder_name = file_path[:-4]
@@ -96,6 +97,8 @@ def get_sample(file_name, request_sec = 0):
 
         if not ret:
             break
+        if image is None:
+            print("이미지가 None입니다:", frame_idx, flush=True)
         print(frame_idx, flush=True)
         sample_count += 1 
 
@@ -112,27 +115,52 @@ def get_sample(file_name, request_sec = 0):
         image_path = folder_name + "/%s" %file_name
 
         sample_list.append({"Time":frame_second, "File_path":image_path})
-        
-        cv2.imwrite(image_path, image)
+        img_pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        img_pil.save(image_path)
+    
+    video.release()
         
     return sample_list
     
 def get_description(sample_list):
 
-    device = "cuda:0"
-    model_sentence = SentenceTransformer('/model_clone/ko-sroberta-multitask',device=device)
+    #device = "cuda:0"
+    #model_sentence = SentenceTransformer('/model_clone/ko-sroberta-multitask',device=device)
 
     description_dict = {}
     for sample in sample_list:
         request_img = Image.open(sample["File_path"])
 
-        result = infer_from_server_with_image_object("http://172.16.8.52:8000", request_img, "아기가 자고 있나요? 아니면 아기가 깨어 있나요?","Llama3.2-VIX-M-3B-KO")
+        result = infer_from_server_with_image_object("http://172.16.8.52:8000", request_img, 
+                                                     "Classify the baby’s state in the given image.\n\nConsider facial expression, " \
+                                                     "posture, eye status, and visibility when making your decision. " \
+                                                     "Facial expressions and eye status should only be judged if the baby's face is clearly visible.\n\nChoose one of the following states:\n- Unknown: Image is too dark, " \
+                                                     "blurry, or includes a third person, making the baby’s state unidentifiable.\n- No_baby: No baby is visible in the image.\n- Crying: Baby’s face shows a crying expression (e.g., mouth open, visible distress).\n- "\
+                                                     "Moving: Baby is in a posture that requires effort, such as sitting, standing, or crawling.\n- Awake: Baby is lying down with eyes open and not crying.\n- Sleep: Baby is lying down with eyes closed and not crying.\n"
+                                                     ,"Llama3.2-VIX-1B-EN_test")
 
         descript = result.get('result')
 
-        sleep_descript = baby_sleep_check(descript, model_sentence)
+        if descript == "Sleep":
+            sleep_descript = "아기가 자는 중입니다."
+            descript = "아기가 자는 중입니다."
+        else:
+            sleep_descript = "아기가 깨어 있습니다."
+            if descript == "Moving":
+                descript = "아기가 움직이는 중입니다."
+            elif descript == "Crying":
+                descript = "아기가 우는 중입니다."
+            elif descript == "NoBaby":
+                descript = "아기가 침대에 존재하지 않습니다."
+            elif descript == "Unknown":
+                descript = "아기의 상태를 확인할 수 없습니다."
+            elif descript == "Awake":
+                descript = "아기가 깨어 있습니다."
 
-        description_dict[sample["Time"]] = sleep_descript
+
+        #sleep_descript = baby_sleep_check(descript, model_sentence)
+
+        description_dict[sample["Time"]] = {"descript":descript, "sleep":sleep_descript}
 
     return description_dict
 
@@ -166,7 +194,8 @@ def make_excel(file_name, sample_list, description_dict):
 
         Time = f"{hour:02d}:{minute:02d}:{second:02d}"
 
-        descript = description_dict[str(sample["Time"])]
+        descript = description_dict[str(sample["Time"])]["descript"]
+        sleep_descript = description_dict[str(sample["Time"])]["sleep"]
 
         write_ws['B'+str(sample_count)] = Time
         write_ws['C'+str(sample_count)] = descript
@@ -180,5 +209,5 @@ def make_excel(file_name, sample_list, description_dict):
         else:
             check_sleep_descript = descript
             write_ws['D'+str(sample_count)] = 'O'
-        write_ws['E'+str(sample_count)] = descript
+        write_ws['E'+str(sample_count)] = sleep_descript
     write_wb.save(filename=f"uploaded_files/{folder_name}.xlsx")
