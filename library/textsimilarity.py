@@ -28,7 +28,7 @@ import importlib
 from ultralytics import YOLO
 from sentence_transformers import SentenceTransformer
 
-from workers import *
+# from _prev_code.workers import *
 from logger_config import logger
 import GPUtil
 GPUtil.showUtilization()
@@ -37,8 +37,8 @@ base_abspath = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__fi
 sys.path.append(base_abspath)
 # device = "cpu"
 device = "cuda:0"
-model_sentence = SentenceTransformer('jhgan/ko-sroberta-multitask')
-model_sentence.save('D:/model_clone/ko-sroberta-multitask')
+model_sentence = SentenceTransformer('./model_clone/ko-sroberta-multitask',device=device)
+# model_sentence.save('./model_clone/ko-sroberta-multitask')
 
 def get_similarity(model_sentence: SentenceTransformer, text0: str, text1: str) -> float:
     if not text0 or not text1:
@@ -64,10 +64,13 @@ def get_similarity(model_sentence: SentenceTransformer, text0: str, text1: str) 
 		
 		
 if __name__ == '__main__':
-    # 비교할 텍스트 정의
+    print(torch.__version__)
+    # # 비교할 텍스트 정의
     text0 = "이 사진에는 여섯 명이 있습니다."
     text1 = "완전히 다릅니다."
+    print("CUDA available:", torch.cuda.is_available())
+    print("CUDA device count:", torch.cuda.device_count())
 
-    model_sentence = SentenceTransformer('D:/model_clone/ko-sroberta-multitask',device=device)
-
+    model_sentence = SentenceTransformer('./model_clone/ko-sroberta-multitask',device=device)
+    print(model_sentence)
     similarity = get_similarity(model_sentence, text0, text1)		

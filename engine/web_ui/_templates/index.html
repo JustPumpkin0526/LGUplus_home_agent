@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>LG U+ 홈Agent PoC 영상 필터링</title>
+  <link rel="stylesheet" href="/engine/web_ui/css/style.css">
+  <link rel="icon" href="/engine/web_ui/icon.ico" type="image/x-icon"/>
+  <script src="/engine/web_ui/js/main.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="header">
+    LG U+ 홈Agent PoC 영상 필터링
+  </div>
+
+  <div class="container">
+    <!-- 왼쪽 패널 -->
+    <div class="left-panel">
+      <h2>Options</h2>
+
+      <div class="options-group horizontal-options">
+        <fieldset class="option-section">
+          <legend>파일 업로드</legend>
+
+          <label for="imageFile">이미지 선택</label>
+          <input type="file" id="imageFile" accept="image/*,.jpg,.jpeg,.png">
+
+          <label for="videoFile">영상 선택</label>
+          <input type="file" id="videoFile" accept="video/*,.mp4">
+
+          <div id="drop-area" class="drop-area">
+            <p>파일을 여기로 끌어다 놓으세요</p>
+            <input type="file" id="fileElem" multiple accept="video/*,image/*" style="display:none">
+          </div>
+
+          <div class="button-group">
+            <button id="analysisButton">분석 시작</button>
+            <button id="resetButton">파일 초기화</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="option-section">
+          <legend>분석 설정</legend>
+
+          <div class="input-row">
+            <label for="sleepTime">아기 수면 상태 재생 시간 (초)</label>
+            <input type="number" min="0" id="sleepTime" name="sleep_time" value="10">
+          </div>
+
+          <div class="input-row">
+            <label for="sampleTime">Sample 간격 (초)</label>
+            <input type="number" min="0" id="sampleTime" name="sample_time" value="60">
+          </div>
+
+          <div id="processTime">분석 프로세스 소요 시간 : - 초</div>
+        </fieldset>
+      </div>
+
+      <div class="table-section">
+        <h2>아기 수면 상태 전환 분석 표</h2>
+        <div id="excelTableContainer"></div>
+        <div class="button-group">
+          <button id="excel_button">표 불러오기</button>
+          <button id="excel_reset" style="display:none;">표 초기화</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오른쪽 패널 -->
+    <div class="right-panel">
+      <div class="video-section">
+        <video id="video" controls></video>
+        <img id="previewImage" style="display: none" alt="미리보기 이미지"/>
+
+        <div id="subtitleWrapper">
+          <div id="subtitle">여기에 자막이 표시됩니다.</div>
+        </div>
+
+        <div class="videoPlay">
+          <button class="playVideo" id="playVideo">영상 재생</button>
+          <button class="stopVideo" id="stopVideo">재생 중단</button>
+        </div>
+
+        <div class="video_play_set">
+          <label for="video_option">영상 재생 방식:</label>
+          <select id="video_option" name="video_option">
+            <option value="none">재생 방식 선택</option>
+            <option value="normal">전체 재생</option>
+            <option value="sample_play">샘플 재생</option>
+            <option value="change_play">전환 시점 재생</option>
+            <option value="sleep_time_play">수면 상태 전환 재생</option>
+          </select>
+        </div>
+
+        <div id="timeDisplay">00:00 / 00:00</div>
+        <div id="progressContainer">
+          <div id="progressBar"></div>
+        </div>
+
+        <div id="panorama"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
