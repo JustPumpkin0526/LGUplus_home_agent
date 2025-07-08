@@ -43,8 +43,8 @@ async def vlm_query(sample_list: str = Form(...)):
 @app.post("/make_excel")
 async def excel(
     file: UploadFile = File(...),
-    sample_list: str = Form(...),            # ✅ 문자열로 받기
-    descript_dict: str = Form(...)           # ✅ 문자열로 받기
+    sample_list: str = Form(...),       
+    descript_dict: str = Form(...)      
 ):
     parsed_sample_list = json.loads(sample_list)
     parsed_descript_dict = json.loads(descript_dict)
