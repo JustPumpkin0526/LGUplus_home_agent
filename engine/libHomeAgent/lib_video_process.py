@@ -6,7 +6,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image as XLImage
 
 from library.vlm_inference_client import infer_from_server_with_image_object
-from library.textsimilarity import get_similarity
+import numpy as np
 
 from sentence_transformers import SentenceTransformer
 
@@ -220,104 +220,105 @@ def excel_process(save_excel_path, video_info : list, img_width, img_height):
     
     excel_wb.save(filename=save_excel_path)
 
-def descript_similarity_process(excel_path):
-    # result 시트 생성
-    excel_wb = load_workbook(excel_path)
-    origin_sheet = excel_wb["Sheet"]
-
-    # descript 유사도 측정
-
-    # 첫번째 프레임은 항상 O
-    origin_sheet['D'+str(2)] = 1.0
-    origin_sheet['E'+str(2)] = "O"
-    
-    for row_idx in range(2, origin_sheet.max_row):
-        descript_src = str(origin_sheet['C'+str(row_idx)].value)
-        descript_trg = str(origin_sheet['C'+str(row_idx + 1)].value)
-
-        score = get_similarity(model_sentence, descript_src, descript_trg)
-
-        origin_sheet['D'+str(row_idx+1)] = score
-        origin_sheet['E'+str(row_idx+1)] = "X" if score > 0.7 else "O"
-
-        # keyword description 생성 시
-        if "SLEEP" in descript_src.upper():
-            descript_src = "SLEEP"
-        else:
-            descript_src = "AWAKE"
-        if "SLEEP" in descript_trg.upper():
-            descript_trg = "SLEEP"
-        else:
-            descript_trg = "AWAKE"
-        origin_sheet['F'+str(row_idx+1)] = "X" if descript_src != descript_trg else "O"
-
-
-    # 새 시트 생성
-    result = excel_wb.create_sheet(title="result")
-
-    # 열 너비 복사
-    for col in origin_sheet.columns:
-        col_letter = get_column_letter(col[0].column)
-        result.column_dimensions[col_letter].width = origin_sheet.column_dimensions[col_letter].width
-
-    # 타이틀 복사
-    for col_idx, cell in enumerate(origin_sheet[1], start=1):
-        result.cell(row=1, column=col_idx, value=cell.value)
-    result.row_dimensions[1].height = origin_sheet.row_dimensions[1].height
-
-    # A열 이미지만 수집: {행 번호: 이미지}
-    image_map = {
-        img.anchor._from.row + 1: img
-        for img in origin_sheet._images if img.anchor._from.col == 0
-    }
-
-    result_row = 2
-    max_row = origin_sheet.max_row
-
-    for i in range(2, max_row):
-        if i == 2 or origin_sheet[f'E{i}'].value == "O":
-            cur_row = i
-
-            # 행 높이 복사
-            result.row_dimensions[result_row].height = origin_sheet.row_dimensions[cur_row].height
-
-            # 셀 값 복사
-            for col in range(1, origin_sheet.max_column + 1):
-                if cur_row == 2:
-                    if col == 4:
-                        result.cell(row=result_row, column=col, value=1.0)
-                    if col == 5:
-                        result.cell(row=result_row, column=col, value="O")
-                    else:
-                        cell = origin_sheet.cell(row=cur_row, column=col)
-                        result.cell(row=result_row, column=col, value=cell.value)
-                else:
-                    cell = origin_sheet.cell(row=cur_row, column=col)
-                    result.cell(row=result_row, column=col, value=cell.value)
-
-            # A열 이미지 복사 (있으면)
-            if cur_row in image_map:
-                img = image_map[cur_row]
-                anchor = copy.deepcopy(img.anchor)
-
-                img_data = img.ref
-                if hasattr(img_data, "seek"):
-                    img_data.seek(0)
-                pil_img = Image.open(img_data)
-
-                buf = io.BytesIO()
-                pil_img.save(buf, format='PNG')
-                buf.seek(0)
-
-                new_img = XLImage(buf)
-                new_img.anchor = anchor
-                new_img.anchor._from.row = result_row - 1
-                result.add_image(new_img)
-
-            result_row += 1
-
-    excel_wb.save(filename=excel_path)
-
-def test_text_similarity(text1 : str, text2 : str):
-    score = get_similarity(model_sentence, text1, text2)
-    return score
+#def descript_similarity_process(excel_path):
+#    # result 시트 생성
+#    excel_wb = load_workbook(excel_path)
+#    origin_sheet = excel_wb["Sheet"]
+#
+#    # descript 유사도 측정
+#
+#    # 첫번째 프레임은 항상 O
+#    origin_sheet['D'+str(2)] = 1.0
+#    origin_sheet['E'+str(2)] = "O"
+#    
+#    for row_idx in range(2, origin_sheet.max_row):
+#        descript_src = str(origin_sheet['C'+str(row_idx)].value)
+#        descript_trg = str(origin_sheet['C'+str(row_idx + 1)].value)
+#
+#        score = get_similarity(model_sentence, descript_src, descript_trg)
+#
+#        origin_sheet['D'+str(row_idx+1)] = score
+#        origin_sheet['E'+str(row_idx+1)] = "X" if score > 0.7 else "O"
+#
+#        # keyword description 생성 시
+#        if "SLEEP" in descript_src.upper():
+#            descript_src = "SLEEP"
+#        else:
+#            descript_src = "AWAKE"
+#        if "SLEEP" in descript_trg.upper():
+#            descript_trg = "SLEEP"
+#        else:
+#            descript_trg = "AWAKE"
+#        origin_sheet['F'+str(row_idx+1)] = "X" if descript_src != descript_trg else "O"
+#
+#
+#    # 새 시트 생성
+#    result = excel_wb.create_sheet(title="result")
+#
+#    # 열 너비 복사
+#    for col in origin_sheet.columns:
+#        col_letter = get_column_letter(col[0].column)
+#        result.column_dimensions[col_letter].width = origin_sheet.column_dimensions[col_letter].width
+#
+#    # 타이틀 복사
+#    for col_idx, cell in enumerate(origin_sheet[1], start=1):
+#        result.cell(row=1, column=col_idx, value=cell.value)
+#    result.row_dimensions[1].height = origin_sheet.row_dimensions[1].height
+#
+#    # A열 이미지만 수집: {행 번호: 이미지}
+#    image_map = {
+#        img.anchor._from.row + 1: img
+#        for img in origin_sheet._images if img.anchor._from.col == 0
+#    }
+#
+#    result_row = 2
+#    max_row = origin_sheet.max_row
+#
+#    for i in range(2, max_row):
+#        if i == 2 or origin_sheet[f'E{i}'].value == "O":
+#            cur_row = i
+#
+#            # 행 높이 복사
+#            result.row_dimensions[result_row].height = origin_sheet.row_dimensions[cur_row].height
+#
+#            # 셀 값 복사
+#            for col in range(1, origin_sheet.max_column + 1):
+#                if cur_row == 2:
+#                    if col == 4:
+#                        result.cell(row=result_row, column=col, value=1.0)
+#                    if col == 5:
+#                        result.cell(row=result_row, column=col, value="O")
+#                    else:
+#                        cell = origin_sheet.cell(row=cur_row, column=col)
+#                        result.cell(row=result_row, column=col, value=cell.value)
+#                else:
+#                    cell = origin_sheet.cell(row=cur_row, column=col)
+#                    result.cell(row=result_row, column=col, value=cell.value)
+#
+#            # A열 이미지 복사 (있으면)
+#            if cur_row in image_map:
+#                img = image_map[cur_row]
+#                anchor = copy.deepcopy(img.anchor)
+#
+#                img_data = img.ref
+#                if hasattr(img_data, "seek"):
+#                    img_data.seek(0)
+#                pil_img = Image.open(img_data)
+#
+#                buf = io.BytesIO()
+#                pil_img.save(buf, format='PNG')
+#                buf.seek(0)
+#
+#                new_img = XLImage(buf)
+#                new_img.anchor = anchor
+#                new_img.anchor._from.row = result_row - 1
+#                result.add_image(new_img)
+#
+#            result_row += 1
+#
+#    excel_wb.save(filename=excel_path)
+#
+#def test_text_similarity(text1 : str, text2 : str):
+#    score = get_similarity(model_sentence, text1, text2)
+#    return score
+#

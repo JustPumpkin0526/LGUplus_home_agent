@@ -138,7 +138,7 @@ if __name__ == "__main__":
     root_path = "."
     gt_lg_root = f'{root_path}/gt/lguplus_json'
     infer_root = f'{root_path}/excel'
-    file_name = "조_우0426_11"
+    file_name = "조_우0426_12"
     # file_name = "김_현0426_5"
 
     # gt 형식의 json 데이터를 1초 단위로 가공한 json 파일 생성
@@ -188,7 +188,8 @@ if __name__ == "__main__":
     elif type_num == 4:
         labels = ["Sleep", "Awake", "Nobaby", "Unknown"]
         y_true = [data["event_full"] for time, data in gt_datas.items()]
-        # y_true = [["Unknown"] if "Unknown" in event else event for event in y_true]
+        y_true_ori = y_true
+        y_true = [["Unknown"] if "Unknown" in event else event for event in y_true]
         # y_true = [["Sleep"] if "Sleep" in event else event for event in y_true]
         # y_true = [["Awake"] if "Awake" in event else event for event in y_true]
         # y_true = [["Awake"] if "Moving" in event else event for event in y_true]
@@ -207,6 +208,7 @@ if __name__ == "__main__":
         y_true = [event[0] for event in y_true]
         y_pred = [data["result"] for data in pred_datas]
         y_pred = ["Awake" if event in ["Awake", "Moving", "Crying"] else event for event in y_pred]
+        print(y_true)
     elif type_num == 6:
         labels = ["Sleep", "Awake", "Moving", "Crying", "Nobaby", "Unknown"] 
         y_true = [data["event_full"] for time, data in gt_datas.items()]
@@ -219,15 +221,21 @@ if __name__ == "__main__":
     # print("Pred", y_pred)
     # print("-----------------\n")
 
-    b_analysis = False
+    b_analysis = True
+    text_result = []
     if b_analysis:
         cnt = 0
-        for true, pred in zip(y_true, y_pred):
+        for idx, (true, pred) in enumerate(zip(y_true, y_pred)):
             # print("GT", true)
             # print("Pred", pred)
-            if true != pred:
-                print(true, pred)
-                cnt += 1
+            # if true != pred:
+            #     print(true, pred)
+            #     cnt += 1
+            exclude = False
+            if true not in ["Sleep", "Awake", "Unknown"]:
+                exclude = True
+            check = "O" if pred == true else "X"
+            text_result.append(f"{y_true_ori[idx]}. {true}. {pred}. {check}. {exclude}")
             # break
         print(cnt)
         # exit()
