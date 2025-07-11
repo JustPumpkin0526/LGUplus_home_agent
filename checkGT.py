@@ -111,8 +111,7 @@ def video_sampling(video_file_path, save_root, interval, b_save=True):
     video.release()
     return video_info
 
-def vlm_video_process(model, url : str, prompt :str, video_infos):
-    print(f"비디오 분석 진입: {file_name}" )
+def vlm_video_process(model, url : str, prompt :str, video_infos, file_name):
     check_descript = ""
     count = 0
     vlm_process_time = 0
@@ -163,8 +162,12 @@ def vlm_video_process(model, url : str, prompt :str, video_infos):
 
 def video_process(video_list):
     for video_file in video_list:
+        video_name = video_file.split(".")
+        if os.path.exists(f"results/json/{video_name}.json"):
+            print("이미 존재합니다.")
+            continue
         video_infos = video_sampling(f"videos/{video_file}","results\sampled_imgs",1, True)
-        vlm_video_process("Llama3.2-VIX-1B-EN_test", "http://172.16.8.52:8000", query, video_infos)
+        vlm_video_process("Llama3.2-VIX-1B-EN_test", "http://172.16.8.52:8000", query, video_infos, video_name[0])
 
 #파일 상위 경로
 root_path = "."
@@ -293,7 +296,7 @@ def convert_infer_res_xlsx_to_json(xlsx_path:str):
     
     return json_data
 
-def GT_check_process(pred_datas, gt_datas):
+def GT_check_process(pred_datas, gt_datas, file_name):
     print(f"GT 체크 진입 : {file_name}")
     type_num = 4
 
@@ -326,14 +329,17 @@ def GT_check_process(pred_datas, gt_datas):
         # y_true = [["Awake"] if "Moving" in event else event for event in y_true]
         # y_true = [["Awake"] if "Crying" in event else event for event in y_true]
         cut_idx = 0
+        for pred in pred_datas:
+            pred.setdefault('GT_check', " ")
+            pred.setdefault('GT_timestamp', " ")
+            pred.setdefault('GT_descript', " ")
+            pred.setdefault('GT_change_descript', " ")
+            pred.setdefault('use_sample', " ")
             
         for idx, events in enumerate(y_true):
             if idx >= len(pred_datas):
                 break
-            pred_datas[idx].setdefault('GT_check', " ")
-            pred_datas[idx].setdefault('GT_timestamp', " ")
-            pred_datas[idx].setdefault('GT_descript', " ")
-            pred_datas[idx].setdefault('GT_change_descript', " ")
+            
             pred_datas[idx]["GT_descript"] = ', '.join(events)
             y_temp = []
             for true in events:
@@ -343,7 +349,6 @@ def GT_check_process(pred_datas, gt_datas):
                     y_temp.append("baby_awake")
                 else:
                     y_temp.append(true)
-            cut_idx += 1
             y_true[idx] = y_temp
             
             pred_datas[idx]["GT_change_descript"] = y_temp
@@ -353,7 +358,6 @@ def GT_check_process(pred_datas, gt_datas):
         y_true = [event[0] for event in y_true]
         y_pred = [data["change_result"] for data in pred_datas]
         y_pred = ["baby_awake" if event in ["baby_awake", "baby_moving", "baby_crying"] else event for event in y_pred]
-        pred_datas = pred_datas[:cut_idx]
     elif type_num == 6:
         labels = ["Sleep", "Awake", "Moving", "Crying", "Nobaby", "Unknown"] 
         y_true = [data["event_full"] for time, data in gt_datas.items()]
@@ -365,26 +369,6 @@ def GT_check_process(pred_datas, gt_datas):
     # print("GT", y_true)
     # print("Pred", y_pred)
     # print("-----------------\n")
-
-    b_analysis = True
-    if b_analysis:
-        cnt = 0
-        for idx, (true, pred) in enumerate(zip(y_true, y_pred)):
-            # print("GT", true)
-            # print("Pred", pred)
-            # if true != pred:
-            #     print(true, pred)
-            #     cnt += 1
-            if idx >= len(pred_datas):
-                break
-
-            pred_datas[idx]["use_sample"] = "O"
-            if true not in ["baby_sleep", "baby_awake", "unknown"]:
-                pred_datas[idx]["use_sample"] = "X"
-                
-            # break
-        print(cnt)
-        # exit()
 
     print("---------------------------------------------------")
     for label in labels:
@@ -402,7 +386,9 @@ def GT_check_process(pred_datas, gt_datas):
         fn = 0
         print("Class", cls)
         for idx, (yt, yp) in enumerate(zip(y_true, y_pred)):
+            pred_datas[idx]["use_sample"] = "O"
             if yt not in ["baby_sleep", "baby_awake", "unknown"]:
+                pred_datas[idx]["use_sample"] = "X"
                 continue
             if cls in yt and cls == yp:
                 pred_datas[idx]["GT_check"] = "O"
@@ -622,7 +608,7 @@ def excel_process(save_excel_path, video_info : list, img_width, img_height, sco
 
     print("엑셀 저장 완료")
 
-def make_total_excel(line_num, file_name, class_results, total_excel):
+def make_total_excel_line(line_num, file_name, class_results, total_excel):
     sample_count = class_results["baby_sleep"]["tp"] + class_results["baby_sleep"]["fp"] + class_results["baby_awake"]["tp"] + class_results["baby_awake"]["fp"] + class_results["unknown"]["tp"] + class_results["unknown"]["fp"] + class_results["no_baby"]["tp"] + class_results["no_baby"]["fp"]
     sleep_score = round((class_results["baby_sleep"]["tp"] / (class_results["baby_sleep"]["tp"]+ class_results["baby_sleep"]["fp"]))*100 if (class_results["baby_sleep"]["tp"]+ class_results["baby_sleep"]["fp"]) != 0 else 0, 2)
     awake_score = round((class_results["baby_awake"]["tp"] / (class_results["baby_awake"]["tp"]+ class_results["baby_awake"]["fp"]))*100 if (class_results["baby_awake"]["tp"]+ class_results["baby_awake"]["fp"]) != 0 else 0, 2)
@@ -649,6 +635,9 @@ def make_total_excel(line_num, file_name, class_results, total_excel):
     total_excel['N'+str(ln)] = nobaby_score
     total_excel['O'+str(ln)] = round(total_score, 2)
 
+    return total_score
+
+
 if __name__ == "__main__":
     query = '''
     Classify the baby’s state in the given image.
@@ -666,10 +655,11 @@ if __name__ == "__main__":
     
     video_list = os.listdir("videos")
 
-    #video_process(video_list)
+    video_process(video_list)
     line_num = 0
     total_excel_wb = Workbook()
     total_excel = total_excel_wb.active
+    avg_total_score = 0
     for video_file in video_list:
         video = video_file.split(".")
         file_name = video[0]
@@ -696,7 +686,7 @@ if __name__ == "__main__":
 
         vlm_excel_process(excel_path, pred_datas, 300, 200)
 
-        video_infos, check_score, class_results = GT_check_process(pred_datas, gt_datas)
+        video_infos, check_score, class_results = GT_check_process(pred_datas, gt_datas, file_name)
 
         excel_root = f"results/excel"
         excel_path = f"{excel_root}/{file_name}.xlsx"
@@ -704,6 +694,9 @@ if __name__ == "__main__":
 
         line_num += 1
         
-        make_total_excel(line_num, file_name, class_results, total_excel)
+        total_score = make_total_excel_line(line_num, file_name, class_results, total_excel)
+        avg_total_score += total_score
+    avg_total_score = avg_total_score / line_num 
+    total_excel["B"+str(line_num+2)] = f"총 정답율 : {avg_total_score}" 
     total_excel_wb.save(filename="results/excel/total_excel.xlsx")
     
