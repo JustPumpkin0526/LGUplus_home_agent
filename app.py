@@ -73,14 +73,14 @@ async def read_index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
     # return templates.TemplateResponse("index.html", {"request": request, "video_path":video_path})
 
-@app.post("/upload_image")
-async def upload_image(file: UploadFile = File(...)):
+@app.post("/vlm_image_query")
+async def vlm_image_query(file: UploadFile = File(...)):
     file_location = os.path.join("videos", file.filename)
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
     # result = vp.vlm_image_process("Llama3.2-VIX-M-3B-KO", "http://172.16.8.52:8000", "당신은 아기 관찰자 입니다. 아기의 상태를 'Sleep', 'Awake', 'Seat', 'Stand', 'Play', 'None' 6가지 중 하나로 설명해주세요", {"img_path":file_location})
-    result = vp.vlm_image_process("Llama3.2-VIX-1B-EN_test", "http://172.16.8.52:8000", query, {"img_path":file_location})
+    result = vp.vlm_image_process("Llama3.2-VIX-1B-Small", "http://172.16.8.52:8000", query, {"img_path":file_location})
     descript = result.get('result')
     return JSONResponse(content={"descript": descript})
 
@@ -96,12 +96,12 @@ async def sample(file: UploadFile = File(...), sampling_interval: int = Form(0))
     return JSONResponse(content={"sample_list":sample_list})
     # return JSONResponse(content={"sample_list":""})
 
-@app.post("/vlm_query")
-async def vlm_query(video_name: str = Form(...), sample_list: str = Form(...)):
+@app.post("/vlm_video_query")
+async def vlm_video_query(video_name: str = Form(...), sample_list: str = Form(...)):
     print("vlm_query", flush=True)
     sampled_video_infos = json.loads(sample_list)
     # print(sampled_video_infos, flush=True)
-    vlm_results = vp.vlm_video_process("Llama3.2-VIX-1B-EN_test", "http://172.16.8.52:8000", query, sampled_video_infos)
+    vlm_results = vp.vlm_video_process("Llama3.2-VIX-1B-Small", "http://172.16.8.52:8000", query, sampled_video_infos)
     # vlm_results = vp.vlm_video_process("Llama3.2-VIX-M-3B-KO", "http://172.16.8.52:8000", "당신은 아기 관찰자 입니다. 아기의 상태를 'Sleep', 'Awake', 'Seat', 'Stand', 'Play', 'None' 6가지 중 하나로 설명해주세요", sampled_video_infos)
 
     # for vlm_result in vlm_results:
@@ -130,7 +130,7 @@ async def excel(
 
     return JSONResponse(content={"message": "엑셀 생성 완료"})
 
-@app.post("/excel_data")
+@app.post("/load_excel_data")
 async def get_excel_data(file: UploadFile = File(...)):
     file_name, file_extension = os.path.splitext(file.filename)
     excel_path = f"./results/excel/{file_name}.xlsx"

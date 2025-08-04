@@ -221,7 +221,7 @@ async function analysisImageFile(img_file)
     const formData = new FormData();
     formData.append("file", img_file);
 
-    fetch("/upload_image", {
+    fetch("/vlm_image_query", {
       method: "POST",
       body: formData
     })
@@ -266,7 +266,7 @@ async function videoAnalyzing(video_name, sample_list)
       const vlmForm = new FormData();
       vlmForm.append("video_name", video_name);
       vlmForm.append("sample_list", JSON.stringify(sample_list));
-      const vlmRes = await fetch("/vlm_query", {
+      const vlmRes = await fetch("/vlm_video_query", {
         method: "POST",
         body: vlmForm
     });
@@ -632,7 +632,7 @@ async function loadExcelData() {
   const formData = new FormData();
   formData.append("file", video_file);
 
-  const response = await fetch('/excel_data', {
+  const response = await fetch('/load_excel_data', {
     method: "POST",
     body: formData
   });
